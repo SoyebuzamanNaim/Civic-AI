@@ -141,15 +141,22 @@ export default async function GovernmentReportDetailPage({
           <Link
             href="/government/dashboard"
             className="p-2.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-2xl text-slate-600 hover:text-slate-950 transition shadow-sm"
+            title="Return to Dashboard"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-extrabold text-teal-800 bg-teal-50 px-3 py-0.5 rounded-full border border-teal-200">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link
+                href="/government/dashboard"
+                className="text-xs font-extrabold text-teal-800 bg-teal-50 px-3 py-0.5 rounded-full border border-teal-200 hover:bg-teal-100 transition shadow-sm flex items-center gap-1"
+              >
+                CivicPulse Operations
+              </Link>
+              <span className="font-mono text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
                 {report.tracking_code}
               </span>
-              <span className="text-xs text-slate-500 font-medium">ID: {report.id}</span>
+              <span className="text-xs text-slate-500 font-medium hidden sm:inline">ID: {report.id}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-950 mt-1 capitalize tracking-tight">
               {report.final_category.replace('_', ' ')} Issue
