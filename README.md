@@ -12,6 +12,7 @@ An enterprise-grade, privacy-preserving civic issue reporting and management sys
 - 🤖 **Multi-Tier AI Provider Resilience**: Primary analysis via **Google Gemini 2.5 Flash**, failover to **Groq Llama 3.3**, and fallback to a **Deterministic Engine**. Never drops a report.
 - 🇧🇩 **Banglish & English Issue Classification**: Processes local Banglish descriptions (e.g. *"Mirpur-10 e rasta bhenge geche, boro gorto"*) into standardized categories, severity scores, and rationale.
 - 🗺️ **Explainable Multi-Signal Duplicate Detection**: Combines vector semantic similarity (0.40), geographic distance (0.30), temporal proximity (0.15), and category matching (0.15) to detect duplicate infrastructure reports without suppressing submissions.
+- 📱 **Progressive Web App (PWA) Implementation**: Mobile installable standalone application with web app manifest (`manifest.webmanifest`), offline service worker caching (`sw.js`), and responsive mobile-first UX.
 - 🔒 **Privacy-First PII Isolation & RLS**: Separates citizen contact data into isolated, non-public tables with strict Supabase Row Level Security (RLS) enforcement.
 - 🏛️ **Government Management Portal**: Role-based dispatching, department assignment, progress timeline tracking, and internal note keeping.
 - 📸 **Cloudinary Evidence Storage**: Secure multi-format image evidence processing and optimization.
@@ -170,6 +171,7 @@ npm run check-types
 ## 🛠️ Technology Stack
 
 - **Framework**: Next.js 16 (App Router, Server Actions, React 19)
+- **PWA Capabilities**: Web App Manifest (`manifest.webmanifest`), Service Worker Cache (`sw.js`), Standalone Mobile Installable
 - **Database**: Supabase Postgres (`pgvector`, `postgis`, RLS enabled)
 - **AI Models**: Google Gemini 2.5 Flash, Groq Llama 3.3 70B Versatile
 - **Media Storage**: Cloudinary Image API
