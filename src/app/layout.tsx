@@ -3,7 +3,7 @@ import "./globals.css";
 import { LanguageProvider } from "@/shared/presentation/i18n/i18nContext";
 
 export const metadata: Metadata = {
-  title: "CivicFix AI | Intelligent Community Solutions",
+  title: "CivicPulse AI | Next-Gen Infrastructure Platform",
   description: "AI-powered civic infrastructure reporting, severity assessment, and case management.",
   manifest: "/manifest.webmanifest",
 };

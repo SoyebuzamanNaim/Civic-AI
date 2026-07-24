@@ -3,7 +3,6 @@
 import { ArrowUpRight, Landmark, MapPin, Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
-import { BrandLogo } from './BrandLogo';
 import { LanguageToggle } from './LanguageToggle';
 import { useLanguage } from '../i18n/i18nContext';
 
@@ -14,7 +13,15 @@ export function PublicNavigation() {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl">
       <div className="mx-auto flex min-h-18 max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-        <BrandLogo href="/" />
+        <Link href="/" className="group flex items-center gap-3" aria-label="CivicPulse home">
+          <span className="flex size-10 items-center justify-center rounded-2xl bg-teal-700 text-white shadow-lg shadow-teal-900/15 transition-transform group-hover:-translate-y-0.5">
+            <MapPin className="size-5" />
+          </span>
+          <span>
+            <span className="block text-base font-extrabold tracking-tight text-slate-950">{t('appTitle')}</span>
+            <span className="hidden text-[11px] font-medium text-slate-500 sm:block">Better streets, together</span>
+          </span>
+        </Link>
 
         {/* Desktop Navigation */}
         <nav className="flex items-center gap-1.5 text-sm font-semibold">

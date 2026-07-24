@@ -46,8 +46,6 @@ interface ReportWithDept {
   departments: { name: string } | null;
 }
 
-import { BrandLogo } from '@/shared/presentation/components/BrandLogo';
-
 export default async function GovernmentDashboardPage({
   searchParams,
 }: {
@@ -111,9 +109,12 @@ export default async function GovernmentDashboardPage({
         {/* Header Bar */}
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
           <div className="flex items-center gap-4">
-            <BrandLogo size="lg" href="/government/dashboard" />
+            <div className="w-12 h-12 rounded-2xl bg-teal-700 flex items-center justify-center shadow-lg shadow-teal-900/15 border border-teal-600">
+              <Shield className="w-6 h-6 text-white" />
+            </div>
             <div>
               <div className="flex items-center gap-3 flex-wrap">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-950 tracking-tight">CivicPulse Operations</h1>
                 <span className="px-3 py-1 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-full border border-emerald-200 flex items-center gap-1.5 shadow-sm">
                   <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" /> Realtime Sync
                 </span>

@@ -13,8 +13,8 @@ interface Translations {
 
 export const dictionary: Translations = {
   // Navigation & Headers
-  appTitle: { en: 'CivicFix AI', bn: 'সিভিকফিক্স এআই' },
-  appTagline: { en: 'Intelligent Community Solutions', bn: 'বুদ্ধিমান কমিউনিটি সমাধান' },
+  appTitle: { en: 'CivicPulse AI', bn: 'সিভিকপালস এআই' },
+  appTagline: { en: 'Next-Generation AI Civic Infrastructure Platform', bn: 'পরবর্তী প্রজন্মের এআই নাগরিক অবকাঠামো প্ল্যাটফর্ম' },
   trackReport: { en: 'Track Report', bn: 'প্রতিবেদন ট্র্যাক করুন' },
   officialPortal: { en: 'Official Portal', bn: 'সরকারি পোর্টাল' },
   reportAnIssue: { en: 'Report an Issue', bn: 'সমস্যা রিপোর্ট করুন' },
