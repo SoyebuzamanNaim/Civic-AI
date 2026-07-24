@@ -46,6 +46,8 @@ interface ReportWithDept {
   departments: { name: string } | null;
 }
 
+import { BrandLogo } from '@/shared/presentation/components/BrandLogo';
+
 export default async function GovernmentDashboardPage({
   searchParams,
 }: {
@@ -109,12 +111,9 @@ export default async function GovernmentDashboardPage({
         {/* Header Bar */}
         <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-6">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-teal-700 flex items-center justify-center shadow-lg shadow-teal-900/15 border border-teal-600">
-              <Shield className="w-6 h-6 text-white" />
-            </div>
+            <BrandLogo size="lg" href="/government/dashboard" />
             <div>
               <div className="flex items-center gap-3 flex-wrap">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-950 tracking-tight">CivicPulse Operations</h1>
                 <span className="px-3 py-1 bg-emerald-50 text-emerald-800 text-xs font-bold rounded-full border border-emerald-200 flex items-center gap-1.5 shadow-sm">
                   <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" /> Realtime Sync
                 </span>
@@ -314,7 +313,74 @@ export default async function GovernmentDashboardPage({
             <span className="text-xs font-semibold text-slate-500">Showing up to 50 active reports</span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Mobile Card List (Smarthones) */}
+          <div className="block md:hidden divide-y divide-slate-200 bg-white">
+            {filteredReports.length === 0 ? (
+              <div className="py-12 text-center text-slate-500 space-y-2 p-4">
+                <Layers className="w-8 h-8 mx-auto text-slate-400" />
+                <p className="font-bold text-slate-800">No reports match the current criteria.</p>
+                <p className="text-[11px] text-slate-500">Try adjusting your search query or severity filters.</p>
+              </div>
+            ) : (
+              filteredReports.map((r) => (
+                <div key={r.id} className="p-4 space-y-3 hover:bg-slate-50/80 transition">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-xs font-bold text-teal-800 flex items-center gap-1.5">
+                      <span>{r.tracking_code}</span>
+                      {r.needs_manual_review && (
+                        <span className="w-2 h-2 rounded-full bg-amber-500" title="Flagged for manual review" />
+                      )}
+                    </span>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full font-bold uppercase text-[10px] inline-flex items-center gap-1 ${
+                        r.severity_level === 'critical'
+                          ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                          : r.severity_level === 'high'
+                          ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                          : 'bg-teal-100 text-teal-800 border border-teal-300'
+                      }`}
+                    >
+                      {r.severity_level} ({Math.round(r.severity_score)})
+                    </span>
+                  </div>
+
+                  <div>
+                    <h3 className="font-extrabold text-sm text-slate-950 capitalize">{r.final_category.replace('_', ' ')}</h3>
+                    <p className="text-xs text-slate-600 line-clamp-2 mt-0.5">{r.description}</p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs text-slate-700">
+                    <MapPin className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                    <span className="truncate">{r.location_text}</span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-full text-[10px] font-bold capitalize border border-slate-200">
+                        {r.status.replace('_', ' ')}
+                      </span>
+                      {r.departments?.name ? (
+                        <span className="text-[11px] font-bold text-slate-800">{r.departments.name}</span>
+                      ) : (
+                        <span className="text-amber-800 text-[10px] font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          Unassigned
+                        </span>
+                      )}
+                    </div>
+                    <Link
+                      href={`/government/reports/${r.id}`}
+                      className="px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 rounded-xl text-xs font-bold transition inline-flex items-center gap-1 shadow-sm shrink-0"
+                    >
+                      Inspect <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs text-slate-800">
               <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 uppercase text-[10px] tracking-wider font-extrabold">
                 <tr>

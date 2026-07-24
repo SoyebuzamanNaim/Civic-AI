@@ -1,11 +1,17 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { LanguageProvider } from "@/shared/presentation/i18n/i18nContext";
 
 export const metadata: Metadata = {
-  title: "CivicPulse AI | Next-Gen Infrastructure Platform",
+  title: "CivicFix AI | Intelligent Community Solutions",
   description: "AI-powered civic infrastructure reporting, severity assessment, and case management.",
   manifest: "/manifest.webmanifest",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
   themeColor: "#0f766e",
 };
 
@@ -21,9 +27,8 @@ export default function RootLayout({
     >
       <head>
         <link rel="manifest" href="/manifest.webmanifest" />
-        <meta name="theme-color" content="#0f766e" />
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full w-full max-w-full overflow-x-hidden flex flex-col">
         <LanguageProvider>{children}</LanguageProvider>
         <script
           dangerouslySetInnerHTML={{

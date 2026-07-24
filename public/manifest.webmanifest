@@ -1,6 +1,6 @@
 {
-  "name": "CivicPulse Infrastructure Platform",
-  "short_name": "CivicPulse",
+  "name": "CivicFix AI - Intelligent Community Solutions",
+  "short_name": "CivicFix AI",
   "description": "AI-Powered Civic Infrastructure Incident Reporting and Case Management Platform",
   "start_url": "/",
   "display": "standalone",
@@ -8,9 +8,9 @@
   "theme_color": "#0f766e",
   "icons": [
     {
-      "src": "/favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "/logo.jpg",
+      "sizes": "192x192 512x512",
+      "type": "image/jpeg"
     }
   ]
 }

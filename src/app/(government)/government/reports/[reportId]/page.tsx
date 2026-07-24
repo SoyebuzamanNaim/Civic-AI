@@ -267,7 +267,7 @@ export default async function GovernmentReportDetailPage({
                       </div>
                       <p className="text-xs text-slate-700 line-clamp-2">{cand?.description}</p>
 
-                      <div className="grid grid-cols-4 gap-2 text-[10px] text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-200 text-center font-medium">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-200 text-center font-medium">
                         <div>Semantic: <strong>{Math.round(link.semantic_score * 100)}%</strong></div>
                         <div>Distance: <strong>{Math.round(link.distance_score * 100)}%</strong></div>
                         <div>Temporal: <strong>{Math.round(link.temporal_score * 100)}%</strong></div>
