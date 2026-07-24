@@ -1,89 +1,30 @@
 import { GetPublicTrackingViewUseCase } from '@/features/tracking/application/GetPublicTrackingViewUseCase';
-import { ArrowRight, CheckCircle2, Sparkles } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ClipboardCheck, Sparkles } from 'lucide-react';
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { PublicFooter, PublicNavigation } from '@/shared/presentation/components/PublicNavigation';
 
-export const metadata: Metadata = {
-  title: 'Submission Confirmed | Infrastructure AI Platform',
-  description: 'Your report has been successfully registered. Save your unique tracking code to follow progress.',
-};
+export const metadata: Metadata = { title: 'Report received | CivicPulse', description: 'Your report has been registered and is ready to track.' };
 
-export default async function SubmissionSuccessPage({
-  params,
-}: {
-  params: Promise<{ trackingCode: string }>;
-}) {
+export default async function SubmissionSuccessPage({ params }: { params: Promise<{ trackingCode: string }> }) {
   const { trackingCode } = await params;
-  const useCase = new GetPublicTrackingViewUseCase();
-  const result = await useCase.execute(trackingCode);
-
-  if (!result.success) {
-    notFound();
-  }
-
+  const result = await new GetPublicTrackingViewUseCase().execute(trackingCode);
+  if (!result.success) notFound();
   const report = result.data;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 py-16 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
-      <div className="max-w-2xl w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 sm:p-10 shadow-2xl space-y-8 text-center">
-        <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/10">
-          <CheckCircle2 className="w-10 h-10" />
-        </div>
+    <div className="public-page flex min-h-screen flex-col">
+      <PublicNavigation />
+      <main className="mx-auto flex w-full max-w-4xl flex-1 items-center px-4 py-12 sm:px-6 lg:px-8"><section className="public-panel w-full rounded-3xl border border-slate-200 p-6 text-center sm:p-10"><span className="mx-auto flex size-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><CheckCircle2 className="size-8" /></span><p className="mt-6 text-xs font-bold uppercase tracking-[0.18em] text-teal-700">Report received</p><h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-950">Thanks for speaking up.</h1><p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-slate-600">Your report is now in the system. Save this code — it&apos;s the simplest way to check public updates later.</p>
 
-        <div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Report Successfully Registered!</h1>
-          <p className="text-slate-400 text-sm mt-2">
-            Your civic infrastructure report has been assigned a unique tracking code and logged into the system.
-          </p>
-        </div>
+        <div className="mx-auto mt-8 max-w-xl rounded-2xl border border-teal-200 bg-teal-50 p-5"><p className="text-xs font-bold uppercase tracking-[0.16em] text-teal-800">Your tracking code</p><p className="mt-3 break-all rounded-xl border border-teal-200 bg-white px-4 py-3 font-mono text-2xl font-extrabold tracking-[0.12em] text-teal-800 sm:text-3xl">{report.trackingCode}</p><p className="mt-3 text-xs text-teal-900/75">Keep it somewhere handy. No sign-in is needed to use it.</p></div>
 
-        <div className="p-6 bg-slate-950 border border-slate-800 rounded-2xl space-y-3">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-widest">
-            Your Public Tracking Code
-          </span>
-          <div className="flex items-center justify-center gap-3">
-            <span className="font-mono text-3xl sm:text-4xl font-extrabold tracking-widest text-blue-400 bg-blue-500/10 px-4 py-2 rounded-xl border border-blue-500/20">
-              {report.trackingCode}
-            </span>
-          </div>
-          <p className="text-xs text-slate-500">
-            Keep this code to check progress anytime without logging in.
-          </p>
-        </div>
+        <div className="mx-auto mt-6 grid max-w-xl gap-3 text-left sm:grid-cols-2"><div className="rounded-2xl border border-slate-200 bg-white p-4"><span className="flex items-center gap-2 text-sm font-bold text-slate-900"><Sparkles className="size-4 text-teal-700" /> Initial review</span><p className="mt-2 text-xs leading-5 text-slate-600">We&apos;ve identified this as <strong className="capitalize text-slate-800">{report.category.replace('_', ' ')}</strong>.</p></div><div className="rounded-2xl border border-slate-200 bg-white p-4"><span className="flex items-center gap-2 text-sm font-bold text-slate-900"><ClipboardCheck className="size-4 text-teal-700" /> What&apos;s next</span><p className="mt-2 text-xs leading-5 text-slate-600">Officials can review, assign, and post public progress updates.</p></div></div>
 
-        <div className="p-4 bg-slate-800/40 border border-slate-700/50 rounded-xl text-left space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-400" /> Automated AI Classification
-            </span>
-            <span className="text-xs font-medium px-2.5 py-0.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/20 capitalize">
-              {report.category.replace('_', ' ')}
-            </span>
-          </div>
-          <p className="text-xs text-slate-300 italic">{report.summary}</p>
-          <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800">
-            <span>Severity Rating: <strong className="text-slate-200 capitalize">{report.severityLevel}</strong></span>
-            <span>Status: <strong className="text-emerald-400 uppercase">{report.status.replace('_', ' ')}</strong></span>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-center gap-4 pt-2">
-          <Link
-            href={`/track/${report.trackingCode}`}
-            className="w-full sm:w-1/2 py-3.5 px-5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm rounded-xl flex items-center justify-center gap-2 transition"
-          >
-            <span>View Live Tracking Page</span>
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-          <Link
-            href="/report/new"
-            className="w-full sm:w-1/2 py-3.5 px-5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-sm rounded-xl flex items-center justify-center gap-2 transition border border-slate-700"
-          >
-            <span>Submit Another Report</span>
-          </Link>
-        </div>
-      </div>
+        <div className="mx-auto mt-8 flex max-w-xl flex-col gap-3 sm:flex-row"><Link href={`/track/${report.trackingCode}`} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-teal-900/15 transition hover:bg-teal-800">Track this report <ArrowRight className="size-4" /></Link><Link href="/report/new" className="inline-flex flex-1 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Report another issue</Link></div>
+      </section></main>
+      <PublicFooter />
     </div>
   );
 }

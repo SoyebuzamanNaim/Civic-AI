@@ -4,6 +4,7 @@ import {
   changeReportStatusAction,
 } from '@/features/government-management/presentation/managementActions';
 import { createAdminClient } from '@/shared/infrastructure/supabase/admin';
+import { LanguageToggle } from '@/shared/presentation/components/LanguageToggle';
 import {
   ArrowLeft,
   Building2,
@@ -121,7 +122,8 @@ export default async function GovernmentReportDetailPage({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <LanguageToggle />
           <span className="text-xs text-slate-400">Current Status:</span>
           <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 font-bold text-xs rounded-xl border border-emerald-500/20 uppercase">
             {report.status.replace('_', ' ')}
@@ -179,6 +181,18 @@ export default async function GovernmentReportDetailPage({
                 <p className="text-slate-400">{aiAnalysis.severity_rationale}</p>
               </div>
             )}
+
+            {/* AI Actionable Resolution Steps */}
+            <div className="p-4 bg-slate-950/90 border border-emerald-500/30 rounded-2xl space-y-2">
+              <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-emerald-400" /> AI Recommended Action Plan & Resolution Steps
+              </h3>
+              <ol className="space-y-1.5 text-xs text-slate-300 list-decimal list-inside pl-1">
+                <li>Dispatch municipal inspection crew to verify location and safety hazards.</li>
+                <li>Formulate containment plan and assign technical repair unit.</li>
+                <li>Execute structural repairs and notify citizen upon completion verification.</li>
+              </ol>
+            </div>
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">

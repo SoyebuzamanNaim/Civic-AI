@@ -42,9 +42,14 @@
 - **Issue**: Citizens may provide contact details (name, email, phone) for updates. If stored directly on the `reports` table, an accidental `SELECT *` in public tracking API handlers would leak PII.
 - **Resolution**: Enforce normalized physical separation. `report_contacts` table is created as a 1-to-1 extension with strict RLS policies prohibiting `anon` SELECT access. Server Actions and Route Handlers use explicitly typed `PublicReportDTO` transformers that never request `report_contacts`.
 
-### Gap 2: AI Availability and Rate Limiting Failures
-- **Issue**: External AI APIs can experience rate limits (429), timeouts, or malformed outputs. If submission relies synchronously on AI without a fallback, citizen submissions would drop during an AI outage.
-- **Resolution**: Implement a provider-neutral `ReportAnalysisProvider` with circuit-breaker behavior: 5-second timeout -> 1 retry with validation error feedback -> on failure, generate deterministic fallback (`analysis_status: 'fallback'`, `needs_manual_review: true`, `category: citizen_category || 'other'`). The report submission **never fails** due to AI down-time.
+### Gap 2: AI Availability, Rate Limiting & Provider Outage Failures
+- **Issue**: Primary AI API (Gemini) can experience rate limits (429), timeouts (8s), model deprecations, or schema validation failures. If submission relies on a single provider without automatic multi-provider failover, citizen submissions could freeze or fail during provider downtime.
+- **Resolution**: Implement a provider-independent adapter with server-side automatic failover:
+  1. Primary Provider: `GeminiReportAnalysisProvider` (Attempt 1 with 8s timeout).
+  2. Gemini Retry: If Attempt 1 fails (timeout, rate limit, schema error), retry Gemini once (Attempt 2).
+  3. Secondary Provider: If Gemini Attempt 2 fails, automatically switch to `GroqReportAnalysisProvider` (Attempt 1 with 8s timeout).
+  4. Deterministic Fallback: If Groq fails or returns invalid schema, trigger `FallbackReportAnalysisProvider` (`needsManualReview: true`, `analysis_status: 'completed_deterministic'`, citizen category or `OTHER`, safe truncated summary).
+  5. The report submission **NEVER FAILS** due to AI outage, and citizens are never shown internal API errors or provider secrets.
 
 ### Gap 3: Duplicate Detection False Positives
 - **Issue**: Automated merging or deletion of duplicates could erase distinct citizen reports or cause loss of location evidence for widespread civic failures.

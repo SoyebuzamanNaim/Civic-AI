@@ -8,6 +8,8 @@ export interface StructuredAnalysisOutput {
   severityScore: number;
   severityRationale: string;
   recommendedDepartmentKey?: string;
+  actionableResolutionSteps?: string[];
+  visualAnalysis?: string;
   uncertainties?: string[];
   provider: string;
   model: string;
@@ -18,8 +20,10 @@ export interface ReportAnalysisProvider {
   analyzeReport(
     description: string,
     locationText: string,
-    citizenCategory?: IssueCategory
+    citizenCategory?: IssueCategory,
+    evidenceUrl?: string
   ): Promise<StructuredAnalysisOutput>;
 
   generateEmbedding(text: string): Promise<number[]>;
 }
+

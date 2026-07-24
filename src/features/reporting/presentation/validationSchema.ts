@@ -17,6 +17,7 @@ export const citizenReportFormSchema = z.object({
   contactName: z.string().max(100).optional(),
   contactEmail: z.string().email('Invalid email address format.').optional().or(z.literal('')),
   contactPhone: z.string().max(20).optional(),
+  evidenceUrl: z.string().url('Invalid evidence URL format.').optional().or(z.literal('')),
   consentToContact: z.boolean().default(false),
 });
 

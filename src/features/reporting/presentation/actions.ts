@@ -15,6 +15,7 @@ export async function submitReportAction(prevState: unknown, formData: FormData)
     contactName: formData.get('contactName')?.toString() || undefined,
     contactEmail: formData.get('contactEmail')?.toString() || undefined,
     contactPhone: formData.get('contactPhone')?.toString() || undefined,
+    evidenceUrl: formData.get('evidenceUrl')?.toString() || undefined,
     consentToContact: formData.get('consentToContact') === 'on' || formData.get('consentToContact') === 'true',
   };
 

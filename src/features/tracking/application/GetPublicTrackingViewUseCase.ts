@@ -62,6 +62,7 @@ export class GetPublicTrackingViewUseCase {
         summary: aiAnalysis?.summary || report.description.substring(0, 150),
         status: report.status,
         severityLevel: report.severity_level,
+        severityScore: report.severity_score,
         severityRationale: aiAnalysis?.severity_rationale || 'Evaluated by civic infrastructure management.',
         locationText: report.location_text,
         assignedDepartmentName: (report.departments as unknown as { name: string } | null)?.name || null,

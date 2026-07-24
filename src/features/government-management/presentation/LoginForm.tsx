@@ -1,91 +1,25 @@
 'use client';
 
 import { loginOfficialAction } from '@/features/government-management/presentation/authActions';
-import { AlertCircle, Lock, LogIn, ShieldAlert } from 'lucide-react';
+import { AlertCircle, LockKeyhole, LogIn, ShieldCheck } from 'lucide-react';
 import { useState, useTransition } from 'react';
 
 export function LoginForm() {
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setErrorMsg(null);
-    const formData = new FormData(e.currentTarget);
-
-    startTransition(async () => {
-      const res = await loginOfficialAction(null, formData);
-      if (res && !res.success) {
-        setErrorMsg(res.error);
-      }
-    });
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault(); setErrorMsg(null);
+    const formData = new FormData(event.currentTarget);
+    startTransition(async () => { const res = await loginOfficialAction(null, formData); if (res && !res.success) setErrorMsg(res.error); });
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6"
-    >
-      <div className="text-center space-y-2">
-        <div className="w-14 h-14 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 rounded-2xl flex items-center justify-center mx-auto">
-          <Lock className="w-7 h-7" />
-        </div>
-        <h1 className="text-2xl font-extrabold text-white">Government Official Login</h1>
-        <p className="text-xs text-slate-400">
-          Access the municipal dispatch & case management system.
-        </p>
-      </div>
-
-      {errorMsg && (
-        <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{errorMsg}</span>
-        </div>
-      )}
-
-      <div className="space-y-4">
-        <div>
-          <label className="block text-xs font-medium text-slate-300 mb-1">Official Email</label>
-          <input
-            type="email"
-            name="email"
-            required
-            placeholder="officer@city.gov"
-            className="w-full rounded-xl bg-slate-950 border border-slate-700 p-3 text-xs text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-slate-300 mb-1">Password</label>
-          <input
-            type="password"
-            name="password"
-            required
-            placeholder="••••••••"
-            className="w-full rounded-xl bg-slate-950 border border-slate-700 p-3 text-xs text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-          />
-        </div>
-      </div>
-
-      <button
-        type="submit"
-        disabled={isPending}
-        className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 transition"
-      >
-        {isPending ? (
-          <span>Authenticating Credentials...</span>
-        ) : (
-          <>
-            <LogIn className="w-4 h-4" />
-            <span>Sign In to Dashboard</span>
-          </>
-        )}
-      </button>
-
-      <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-[11px] text-slate-500 flex items-start gap-2">
-        <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-        <span>Authorized personnel only. Unauthorized access attempts are audited and logged.</span>
-      </div>
+    <form onSubmit={handleSubmit} className="public-panel w-full max-w-md rounded-3xl border border-slate-200 p-7 sm:p-8">
+      <div><span className="flex size-12 items-center justify-center rounded-2xl bg-slate-900 text-white"><LockKeyhole className="size-5" /></span><p className="mt-6 text-xs font-bold uppercase tracking-[0.18em] text-teal-700">Secure workspace</p><h1 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-950">Official sign in</h1><p className="mt-2 text-sm leading-6 text-slate-600">Access report management, assignment, and public progress updates.</p></div>
+      {errorMsg && <div role="alert" className="mt-6 flex gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-medium text-rose-800"><AlertCircle className="size-4 shrink-0" />{errorMsg}</div>}
+      <div className="mt-6 flex flex-col gap-4"><label className="flex flex-col gap-1.5 text-sm font-bold text-slate-800">Official email<input type="email" name="email" required placeholder="officer@city.gov" className="rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm font-normal text-slate-900 outline-none placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10" /></label><label className="flex flex-col gap-1.5 text-sm font-bold text-slate-800">Password<input type="password" name="password" required placeholder="Enter your password" className="rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm font-normal text-slate-900 outline-none placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10" /></label></div>
+      <button type="submit" disabled={isPending} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3.5 text-sm font-bold text-white shadow-lg shadow-slate-900/15 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">{isPending ? 'Signing you in…' : <><LogIn className="size-4" />Sign in to workspace</>}</button>
+      <p className="mt-5 flex gap-2 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-600"><ShieldCheck className="mt-0.5 size-4 shrink-0 text-teal-700" />This workspace is restricted to authorised municipal personnel. Access is monitored.</p>
     </form>
   );
 }

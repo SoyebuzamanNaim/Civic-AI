@@ -50,6 +50,7 @@ export interface PublicReportDTO {
   summary: string;
   status: ReportStatus;
   severityLevel: SeverityLevel;
+  severityScore: number;
   severityRationale: string | null;
   locationText: string;
   assignedDepartmentName: string | null;

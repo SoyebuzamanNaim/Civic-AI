@@ -83,22 +83,23 @@ src/
 
 ---
 
-## 4. AI Analysis & Fallback Workflow
+## 4. AI Analysis & Automatic Failover Workflow
 
 ```mermaid
 graph TD
     A[Citizen Form Submission] --> B[Server Action / Route Handler]
-    B --> C{Call AI Provider}
-    C -- Valid JSON (Within 5s) --> D[Validate Zod Structured Output]
-    D -- Pass Schema --> E[Store Analysis & Severity Score]
-    C -- Timeout / Error --> F[Retry 1 Time with Error Prompt]
-    F -- Failure / Rate Limit --> G[Trigger Deterministic Fallback]
-    D -- Fail Schema --> G
-    G --> H[Set analysis_status = 'fallback']
-    H --> I[Set needs_manual_review = true]
-    I --> J[Use citizen category or 'other']
-    J --> K[Use truncated description as summary]
+    B --> C[Validate Report Input]
+    C --> D{Call Gemini Attempt 1}
+    D -- Success & Valid Schema --> E[Store COMPLETED_PRIMARY Analysis]
+    D -- Timeout / Error / Schema Invalid --> F{Call Gemini Attempt 2 - Retry}
+    F -- Success & Valid Schema --> E
+    F -- Timeout / Error / Schema Invalid --> G{Call Groq Attempt 1}
+    G -- Success & Valid Schema --> H[Store COMPLETED_FALLBACK Analysis]
+    G -- Timeout / Error / Schema Invalid --> I[Trigger Deterministic Fallback]
+    I --> J[Set needs_manual_review = true & analysis_status = COMPLETED_DETERMINISTIC]
+    J --> K[Use citizen category or OTHER & safe truncated summary]
     E --> L[Persist Report in Postgres Transaction]
+    H --> L
     K --> L
 ```
 
@@ -207,19 +208,30 @@ $$\text{Score} = 0.45 \times S_{\text{semantic}} + 0.30 \times S_{\text{distance
 - **Risks**: Invalid state transitions (e.g. `resolved` -> `submitted`).
 - **Owner Assignment**: Person C (3.5h).
 
-### Phase 7 — AI Report Analysis & Severity Assessment
-- **Scope**: Integration of structured LLM analysis adapter (Gemini/OpenAI), severity scoring, rationale, 5s timeout, retry, fallback.
-- **Affected Files**: `src/features/ai-analysis/`, `src/shared/application/ports/ReportAnalysisProvider.ts`.
+### Phase 7 — AI Report Analysis & Automatic Provider Failover
+- **Scope**: Provider-independent AI report analysis with server-side failover sequence (Gemini primary attempt 1 & retry attempt 2 -> Groq secondary attempt 1 -> Deterministic fallback), Zod schema validation, observability metadata, and prompt security.
+- **Affected Files**:
+  - `src/features/ai-analysis/domain/report-analysis.types.ts`
+  - `src/features/ai-analysis/domain/report-analysis.schema.ts`
+  - `src/features/ai-analysis/application/ports/report-analysis-provider.ts`
+  - `src/features/ai-analysis/application/use-cases/analyze-report.use-case.ts`
+  - `src/features/ai-analysis/infrastructure/providers/gemini-report-analysis.provider.ts`
+  - `src/features/ai-analysis/infrastructure/providers/groq-report-analysis.provider.ts`
+  - `src/features/ai-analysis/infrastructure/providers/fallback-report-analysis.provider.ts`
+  - `src/features/ai-analysis/infrastructure/ai-provider.factory.ts`
 - **Dependencies**: Phase 3.
 - **Implementation Tasks**:
-  1. Implement `ReportAnalysisProvider` with structured Zod output schema.
-  2. Add 5-second timeout controller and 1-time retry loop.
-  3. Build fallback generator for provider failure (`needs_manual_review = true`).
-  4. Persist AI analysis metadata in `report_ai_analyses`.
-- **Tests**: Mock AI provider unit test + fault injection timeout test.
-- **Acceptance Criteria**: Valid AI responses store category/severity; API failures trigger fallback cleanly.
-- **Risks**: LLM prompt injection altering system behavior.
-- **Owner Assignment**: Person D (3.5h).
+  1. Define provider-neutral `ReportAnalysisInput`, `ReportAnalysisResult`, and strict Zod `ReportAnalysisResultSchema` with enum bounds (`categoryConfidence` 0..1, `severityScore` 0..100).
+  2. Implement `GeminiReportAnalysisProvider` with Gemini SDK / REST API, 8s `AbortController` timeout, and prompt injection guards.
+  3. Implement `GroqReportAnalysisProvider` with Groq SDK / REST API, 8s timeout, and structured JSON parsing.
+  4. Implement `FallbackReportAnalysisProvider` producing deterministic fallback (`needsManualReview = true`, citizen category or `OTHER`, safe summary).
+  5. Implement `AiProviderFactory` / Failover Orchestrator executing bounded sequence: Gemini (2 attempts) -> Groq (1 attempt) -> Deterministic Fallback.
+  6. Record observability metadata: `provider_used`, `model_used`, `fallback_triggered`, `fallback_reason`, `attempt_count`, `latency_ms`, `analysis_status`.
+  7. Validate server-only environment variables (`GEMINI_API_KEY`, `GROQ_API_KEY`, `GEMINI_MODEL`, `GROQ_MODEL`, `AI_PRIMARY_PROVIDER`, `AI_FALLBACK_PROVIDER`).
+- **Tests**: 14 automated unit/integration test cases covering all failover paths, timeouts, rate limits, schema errors, prompt injection, and zero key leaks using mocked provider adapters.
+- **Acceptance Criteria**: Gemini primary -> Groq secondary -> Fallback flow executes seamlessly server-side without citizen interruption or credential exposure.
+- **Risks**: High latency if timeouts are set too long; mitigated by strict 8-second timeout per call.
+- **Owner Assignment**: `@ai` & `@architect` (3.5h).
 
 ### Phase 8 — Multi-Signal Duplicate Detection
 - **Scope**: Text embedding generation, candidate prefilter query, 4-signal scoring engine, duplicate suggestion UI for officials.

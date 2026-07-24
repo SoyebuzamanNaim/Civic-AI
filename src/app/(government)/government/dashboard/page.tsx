@@ -1,5 +1,8 @@
 import { logoutOfficialAction } from '@/features/government-management/presentation/authActions';
+import { RealtimeDashboardListener } from '@/features/government-management/presentation/RealtimeDashboardListener';
 import { createAdminClient } from '@/shared/infrastructure/supabase/admin';
+import { LanguageToggle } from '@/shared/presentation/components/LanguageToggle';
+import { InteractiveMap } from '@/shared/presentation/components/InteractiveMap';
 import {
   AlertTriangle,
   Building2,
@@ -8,6 +11,7 @@ import {
   LogOut,
   PlusCircle,
   Search,
+  MapPin,
 } from 'lucide-react';
 import { Metadata } from 'next';
 import Link from 'next/link';
@@ -85,26 +89,29 @@ export default async function GovernmentDashboardPage({
   });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6 lg:p-8 space-y-8">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6 lg:p-8">
+      <RealtimeDashboardListener />
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Government Operational Dashboard</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Operations overview</h1>
             <span className="px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 text-xs font-semibold rounded-full border border-emerald-500/20 flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Realtime Active
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Municipal Dispatch & Civic Infrastructure Case Management System
+            Prioritize incoming reports, coordinate ownership, and keep residents informed.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
+          <LanguageToggle />
           <Link
             href="/report/new"
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition"
           >
-            <PlusCircle className="w-4 h-4" /> Submit Report
+            <PlusCircle className="w-4 h-4" /> New report
           </Link>
           <form action={logoutOfficialAction}>
             <button
@@ -115,6 +122,25 @@ export default async function GovernmentDashboardPage({
             </button>
           </form>
         </div>
+      </div>
+
+      <div className="space-y-4">
+        <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-blue-400" /> Geographic Incident Heatmap & Live Pins
+        </h2>
+        <InteractiveMap
+          reports={filteredReports.map((r) => ({
+            id: r.id,
+            trackingCode: r.tracking_code,
+            description: r.description,
+            category: r.final_category,
+            severityLevel: r.severity_level,
+            severityScore: r.severity_score,
+            locationText: r.location_text,
+            status: r.status,
+            departmentName: r.departments?.name,
+          }))}
+        />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -263,6 +289,7 @@ export default async function GovernmentDashboardPage({
             </tbody>
           </table>
         </div>
+      </div>
       </div>
     </div>
   );

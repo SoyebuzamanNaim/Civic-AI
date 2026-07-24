@@ -45,8 +45,9 @@ CREATE TYPE report_status AS ENUM (
 
 CREATE TYPE analysis_status AS ENUM (
   'pending',
-  'completed',
-  'fallback',
+  'completed_primary',
+  'completed_fallback',
+  'completed_deterministic',
   'failed'
 );
 
@@ -152,11 +153,19 @@ CREATE TABLE report_ai_analyses (
   severity_level severity_level NOT NULL,
   severity_score NUMERIC(5,2) NOT NULL CHECK (severity_score >= 0.00 AND severity_score <= 100.00),
   severity_rationale TEXT NOT NULL,
-  department_recommendation TEXT,
-  embedding VECTOR(768), -- Adjusted to match standard embedding dimensions (e.g. text-embedding-3-small or Gemini)
-  provider TEXT NOT NULL,
-  model TEXT NOT NULL,
-  prompt_version TEXT NOT NULL,
+  recommended_department TEXT,
+  safety_risks JSONB DEFAULT '[]'::jsonb,
+  uncertainties JSONB DEFAULT '[]'::jsonb,
+  needs_manual_review BOOLEAN NOT NULL DEFAULT false,
+  embedding VECTOR(768),
+  provider_used TEXT NOT NULL,
+  model_used TEXT NOT NULL,
+  fallback_triggered BOOLEAN NOT NULL DEFAULT false,
+  fallback_reason TEXT,
+  attempt_count INTEGER NOT NULL DEFAULT 1,
+  latency_ms INTEGER NOT NULL DEFAULT 0,
+  analysis_status analysis_status NOT NULL DEFAULT 'completed_primary',
+  prompt_version TEXT NOT NULL DEFAULT 'v1',
   raw_output JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
