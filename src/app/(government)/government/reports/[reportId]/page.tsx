@@ -484,10 +484,10 @@ export default async function GovernmentReportDetailPage({
                 {unflaggedCandidates.length > 0 && (
                   <div className="space-y-3">
                     <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider block">
-                      Top Evaluated Candidate Reports & Similarity Signals (Below 50% Threshold)
+                      Top 5 Evaluated Candidate Reports & Similarity Signals (Below 50% Threshold)
                     </span>
                     <div className="space-y-4">
-                      {unflaggedCandidates.slice(0, 3).map((item) => {
+                      {unflaggedCandidates.slice(0, 5).map((item) => {
                         const cand = item.cand;
                         const overallPercent = Math.round(item.similarity_score * 100);
                         const semScore = Math.round(item.semantic_score * 100);
@@ -591,7 +591,7 @@ export default async function GovernmentReportDetailPage({
               </div>
             ) : (
               <div className="space-y-4">
-                {duplicateLinks.map((link) => {
+                {duplicateLinks.slice(0, 5).map((link) => {
                   const cand = link.cand;
                   const overallPercent = Math.round(link.similarity_score * 100);
 
