@@ -49,3 +49,43 @@ export async function submitReportAction(prevState: unknown, formData: FormData)
     data: result.data,
   };
 }
+
+import { uploadImageToCloudinary } from '@/features/reporting/infrastructure/cloudinary.service';
+
+export async function uploadReportImageAction(formData: FormData) {
+  try {
+    const file = formData.get('file');
+    if (!file || !(file instanceof File)) {
+      const base64Data = formData.get('base64')?.toString();
+      if (base64Data) {
+        const result = await uploadImageToCloudinary(base64Data);
+        return {
+          success: true as const,
+          url: result.url,
+          publicId: result.publicId,
+        };
+      }
+      return { success: false as const, error: 'No image file provided.' };
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      return { success: false as const, error: 'Image size must be less than 10MB.' };
+    }
+
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await uploadImageToCloudinary(arrayBuffer, file.name);
+
+    return {
+      success: true as const,
+      url: result.url,
+      publicId: result.publicId,
+    };
+  } catch (err: any) {
+    console.error('Cloudinary upload action error:', err);
+    return {
+      success: false as const,
+      error: err?.message || 'Failed to upload image to Cloudinary.',
+    };
+  }
+}
+

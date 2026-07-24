@@ -1,7 +1,7 @@
 'use client';
 
-import { submitReportAction } from '@/features/reporting/presentation/actions';
-import { AlertTriangle, Camera, Construction, Droplets, Lightbulb, LocateFixed, RefreshCw, Send, ShieldCheck, Trash2, WifiOff, Wrench } from 'lucide-react';
+import { submitReportAction, uploadReportImageAction } from '@/features/reporting/presentation/actions';
+import { AlertTriangle, Camera, CheckCircle2, Construction, Droplets, Lightbulb, Link as LinkIcon, Loader2, LocateFixed, RefreshCw, Send, ShieldCheck, Trash2, Upload, WifiOff, Wrench, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { useLanguage } from '@/shared/presentation/i18n/i18nContext';
@@ -28,6 +28,59 @@ export function SubmissionForm() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isOffline, setIsOffline] = useState(() => (typeof window !== 'undefined' ? !navigator.onLine : false));
   const [offlineStatusMsg, setOfflineStatusMsg] = useState<string | null>(null);
+
+  // Cloudinary image upload states
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadTab, setUploadTab] = useState<'upload' | 'url'>('upload');
+
+  const processFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Please select a valid image file (JPEG, PNG, WEBP, GIF).');
+      return;
+    }
+    setUploadError(null);
+    setIsUploading(true);
+
+    const localPreview = URL.createObjectURL(file);
+    setImagePreview(localPreview);
+
+    if (!navigator.onLine) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = e.target?.result as string;
+        setEvidenceUrl(base64);
+        setIsUploading(false);
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await uploadReportImageAction(formData);
+      if (res.success) {
+        setEvidenceUrl(res.url);
+        setImagePreview(res.url);
+      } else {
+        setUploadError(res.error);
+        setImagePreview(null);
+      }
+    } catch {
+      setUploadError('Upload failed. Please try again or use a direct image URL.');
+      setImagePreview(null);
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setEvidenceUrl('');
+    setImagePreview(null);
+    setUploadError(null);
+  };
 
   const syncOfflineQueue = async () => {
     try {
@@ -65,7 +118,6 @@ export function SubmissionForm() {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Initial check for pending queue on mount
     if (typeof window !== 'undefined' && navigator.onLine) {
       setTimeout(() => {
         syncOfflineQueue();
@@ -96,10 +148,10 @@ export function SubmissionForm() {
     setErrorMsg(null); setFieldErrors({});
     const formData = new FormData(event.currentTarget);
     formData.set('citizenCategory', selectedCategory);
+    formData.set('evidenceUrl', evidenceUrl);
     if (coords.lat) formData.set('latitude', coords.lat.toString());
     if (coords.lng) formData.set('longitude', coords.lng.toString());
 
-    // Offline handling fallback
     if (!navigator.onLine) {
       const formObject: Record<string, string> = {};
       formData.forEach((val, key) => { formObject[key] = val.toString(); });
@@ -185,19 +237,117 @@ export function SubmissionForm() {
       </div>
 
       <div>
-        <label htmlFor="evidenceUrl" className="text-sm font-bold text-slate-800 flex items-center gap-2">
-          <Camera className="size-4 text-teal-700" /> {t('photoEvidenceUrl')}
-        </label>
-        <p className="mt-1 text-xs text-slate-500">Provide an image URL showing the damaged area for AI multimodal vision assessment.</p>
-        <input
-          type="url"
-          id="evidenceUrl"
-          name="evidenceUrl"
-          value={evidenceUrl}
-          onChange={(e) => setEvidenceUrl(e.target.value)}
-          placeholder="https://example.com/images/pothole.jpg"
-          className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10"
-        />
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <Camera className="size-4 text-teal-700" /> Photo Evidence (Cloudinary Upload)
+          </label>
+          <div className="flex rounded-lg bg-slate-100 p-1 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setUploadTab('upload')}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 transition ${
+                uploadTab === 'upload' ? 'bg-white text-teal-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Upload className="size-3.5" /> Upload File
+            </button>
+            <button
+              type="button"
+              onClick={() => setUploadTab('url')}
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 transition ${
+                uploadTab === 'url' ? 'bg-white text-teal-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <LinkIcon className="size-3.5" /> Image URL
+            </button>
+          </div>
+        </div>
+        <p className="mt-1 text-xs text-slate-500">
+          Upload a photo of the damaged area for AI multimodal vision analysis.
+        </p>
+
+        {uploadTab === 'upload' ? (
+          <div className="mt-3">
+            {imagePreview ? (
+              <div className="relative flex items-center gap-4 rounded-2xl border border-teal-200 bg-teal-50/50 p-3">
+                <img
+                  src={imagePreview}
+                  alt="Evidence preview"
+                  className="size-20 rounded-xl object-cover border border-slate-200 shadow-sm"
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 text-xs font-bold text-teal-900">
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin text-teal-600" />
+                        <span>Uploading to Cloudinary...</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="size-4 text-teal-600" />
+                        <span>Photo uploaded to Cloudinary!</span>
+                      </>
+                    )}
+                  </div>
+                  <p className="mt-1 truncate text-xs text-slate-500">
+                    {evidenceUrl.startsWith('data:') ? 'Stored locally for offline sync' : evidenceUrl || 'Preparing upload...'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="rounded-xl border border-rose-200 bg-white p-2 text-rose-600 hover:bg-rose-50 transition"
+                  title="Remove photo"
+                >
+                  <X className="size-4" />
+                </button>
+              </div>
+            ) : (
+              <label
+                className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-6 text-center cursor-pointer transition ${
+                  isUploading
+                    ? 'border-teal-400 bg-teal-50/50'
+                    : 'border-slate-300 bg-slate-50/50 hover:border-teal-500 hover:bg-teal-50/30'
+                }`}
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) processFile(e.target.files[0]);
+                  }}
+                  className="hidden"
+                  disabled={isUploading}
+                />
+                <div className="flex size-12 items-center justify-center rounded-2xl bg-teal-100 text-teal-700">
+                  {isUploading ? <Loader2 className="size-6 animate-spin" /> : <Upload className="size-6" />}
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">
+                    {isUploading ? 'Uploading photo...' : 'Click to select or drag & drop photo'}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">JPG, PNG, WEBP supported (Up to 10MB)</p>
+                </div>
+              </label>
+            )}
+            {uploadError && <p className="mt-2 text-xs font-medium text-rose-700">{uploadError}</p>}
+          </div>
+        ) : (
+          <div className="mt-3">
+            <input
+              type="url"
+              id="evidenceUrl"
+              name="evidenceUrl"
+              value={evidenceUrl}
+              onChange={(e) => {
+                setEvidenceUrl(e.target.value);
+                setImagePreview(e.target.value || null);
+              }}
+              placeholder="https://example.com/images/pothole.jpg"
+              className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10"
+            />
+          </div>
+        )}
       </div>
 
       <section className="rounded-2xl border border-teal-100 bg-teal-50/65 p-4">
@@ -206,7 +356,8 @@ export function SubmissionForm() {
         <label className="mt-3 flex items-start gap-2 text-xs font-medium text-teal-950"><input type="checkbox" id="consentToContact" name="consentToContact" defaultChecked className="mt-0.5 size-4 rounded border-teal-300 text-teal-700 focus:ring-teal-600" />Officials may contact me about this report.</label>
       </section>
 
-      <button type="submit" disabled={isPending} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-4 text-sm font-bold text-white shadow-lg shadow-teal-900/15 transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60">{isPending ? 'Creating your report and checking the details…' : <><Send className="size-4" /> {t('submitBtn')}</>}</button>
+      <button type="submit" disabled={isPending || isUploading} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-4 text-sm font-bold text-white shadow-lg shadow-teal-900/15 transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60">{isPending ? 'Creating your report and checking the details…' : <><Send className="size-4" /> {t('submitBtn')}</>}</button>
     </form>
   );
 }
+
