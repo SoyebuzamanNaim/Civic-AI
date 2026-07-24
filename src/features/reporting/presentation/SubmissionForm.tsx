@@ -4,6 +4,7 @@ import { submitReportAction } from '@/features/reporting/presentation/actions';
 import { AlertTriangle, Camera, Construction, Droplets, Lightbulb, LocateFixed, RefreshCw, Send, ShieldCheck, Trash2, WifiOff, Wrench } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
+import { useLanguage } from '@/shared/presentation/i18n/i18nContext';
 
 const CATEGORIES = [
   { id: 'pothole', label: 'Pothole or road hazard', icon: Construction },
@@ -15,6 +16,7 @@ const CATEGORIES = [
 
 export function SubmissionForm() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [isPending, startTransition] = useTransition();
   const [description, setDescription] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('pothole');
@@ -134,38 +136,57 @@ export function SubmissionForm() {
         </div>
       )}
       <header className="border-b border-slate-200 pb-6">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-teal-700">New civic report</p>
-        <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-950">Tell us what needs attention.</h1>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-teal-700">{t('reportAnIssue')}</p>
+        <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-950">{t('new_report_title')}</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">A few clear details help your city understand the issue faster. We&apos;ll create a tracking code when you submit.</p>
       </header>
 
       {errorMsg && <div role="alert" className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"><AlertTriangle className="mt-0.5 size-5 shrink-0" /><p>{errorMsg}</p></div>}
 
       <fieldset>
-        <legend className="text-sm font-bold text-slate-800">What kind of issue is it?</legend>
+        <legend className="text-sm font-bold text-slate-800">{t('category_label')}</legend>
         <p className="mt-1 text-xs text-slate-500">Pick the closest match. Our review will confirm the final category.</p>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          {CATEGORIES.map((cat) => { const Icon = cat.icon; const active = selectedCategory === cat.id; return <button key={cat.id} type="button" onClick={() => setSelectedCategory(cat.id)} className={`flex items-center gap-3 rounded-xl border p-3 text-left text-sm font-semibold transition ${active ? 'border-teal-600 bg-teal-50 text-teal-900 ring-2 ring-teal-600/15' : 'border-slate-200 bg-white text-slate-700 hover:border-teal-300 hover:bg-teal-50/50'}`}><Icon className="size-4 shrink-0 text-teal-700" />{cat.label}</button>; })}
+          {CATEGORIES.map((cat) => {
+            const Icon = cat.icon;
+            const active = selectedCategory === cat.id;
+            const localizedLabel = cat.id === 'pothole' ? t('catPothole') :
+                                   cat.id === 'broken_streetlight' ? t('catBrokenStreetlight') :
+                                   cat.id === 'water_leak' ? t('catWaterLeak') :
+                                   cat.id === 'illegal_dumping' ? t('catIllegalDumping') :
+                                   t('catOther');
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`flex items-center gap-3 rounded-xl border p-3 text-left text-sm font-semibold transition ${active ? 'border-teal-600 bg-teal-50 text-teal-900 ring-2 ring-teal-600/15' : 'border-slate-200 bg-white text-slate-700 hover:border-teal-300 hover:bg-teal-50/50'}`}
+              >
+                <Icon className="size-4 shrink-0 text-teal-700" />
+                {localizedLabel}
+              </button>
+            );
+          })}
         </div>
       </fieldset>
 
       <div>
-        <div className="flex items-baseline justify-between gap-4"><label htmlFor="description" className="text-sm font-bold text-slate-800">Describe what you&apos;re seeing <span className="text-rose-600">*</span></label><span className={`text-xs ${description.length < 10 ? 'text-amber-700' : 'text-slate-500'}`}>{description.length} / 2000 · minimum 10</span></div>
+        <div className="flex items-baseline justify-between gap-4"><label htmlFor="description" className="text-sm font-bold text-slate-800">{t('issueDescription')} <span className="text-rose-600">*</span></label><span className={`text-xs ${description.length < 10 ? 'text-amber-700' : 'text-slate-500'}`}>{description.length} / 2000 · minimum 10</span></div>
         <textarea id="description" name="description" rows={5} value={description} onChange={(event) => setDescription(event.target.value)} aria-invalid={Boolean(fieldErrors.description)} placeholder="For example: A deep pothole outside the hospital gate is causing cars to swerve into traffic." className="mt-2 w-full rounded-xl border border-slate-300 bg-white p-3.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10" />
         {fieldErrors.description && <p className="mt-2 text-xs font-medium text-rose-700">{fieldErrors.description}</p>}
       </div>
 
       <div>
-        <label htmlFor="locationText" className="text-sm font-bold text-slate-800">Where is it? <span className="text-rose-600">*</span></label>
+        <label htmlFor="locationText" className="text-sm font-bold text-slate-800">{t('locationDetails')} <span className="text-rose-600">*</span></label>
         <p className="mt-1 text-xs text-slate-500">An address, intersection, or familiar landmark is enough.</p>
-        <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]"><input type="text" id="locationText" name="locationText" value={locationText} onChange={(event) => setLocationText(event.target.value)} aria-invalid={Boolean(fieldErrors.locationText)} placeholder="e.g. North gate of Dhanmondi Lake" className="min-w-0 rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10" /><button type="button" onClick={handleGeolocate} className="inline-flex items-center justify-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-xs font-bold text-teal-800 transition hover:bg-teal-100"><LocateFixed className="size-4" /> Use my location</button></div>
+        <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]"><input type="text" id="locationText" name="locationText" value={locationText} onChange={(event) => setLocationText(event.target.value)} aria-invalid={Boolean(fieldErrors.locationText)} placeholder="e.g. North gate of Dhanmondi Lake" className="min-w-0 rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10" /><button type="button" onClick={handleGeolocate} className="inline-flex items-center justify-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-xs font-bold text-teal-800 transition hover:bg-teal-100"><LocateFixed className="size-4" /> {t('use_my_location')}</button></div>
         {geoStatus && <p className="mt-2 text-xs font-medium text-teal-800">{geoStatus}</p>}
         {fieldErrors.locationText && <p className="mt-2 text-xs font-medium text-rose-700">{fieldErrors.locationText}</p>}
       </div>
 
       <div>
         <label htmlFor="evidenceUrl" className="text-sm font-bold text-slate-800 flex items-center gap-2">
-          <Camera className="size-4 text-teal-700" /> Photo or Image Evidence <span className="text-xs font-normal text-slate-500">(Optional)</span>
+          <Camera className="size-4 text-teal-700" /> {t('photoEvidenceUrl')}
         </label>
         <p className="mt-1 text-xs text-slate-500">Provide an image URL showing the damaged area for AI multimodal vision assessment.</p>
         <input
@@ -185,7 +206,7 @@ export function SubmissionForm() {
         <label className="mt-3 flex items-start gap-2 text-xs font-medium text-teal-950"><input type="checkbox" id="consentToContact" name="consentToContact" defaultChecked className="mt-0.5 size-4 rounded border-teal-300 text-teal-700 focus:ring-teal-600" />Officials may contact me about this report.</label>
       </section>
 
-      <button type="submit" disabled={isPending} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-4 text-sm font-bold text-white shadow-lg shadow-teal-900/15 transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60">{isPending ? 'Creating your report and checking the details…' : <><Send className="size-4" /> Submit report and get a tracking code</>}</button>
+      <button type="submit" disabled={isPending} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-700 px-5 py-4 text-sm font-bold text-white shadow-lg shadow-teal-900/15 transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:opacity-60">{isPending ? 'Creating your report and checking the details…' : <><Send className="size-4" /> {t('submitBtn')}</>}</button>
     </form>
   );
 }
