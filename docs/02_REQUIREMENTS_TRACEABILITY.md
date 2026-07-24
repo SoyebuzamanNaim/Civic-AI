@@ -25,14 +25,14 @@ Use this file as the source of truth. Mark each row only after implementation, a
 | FR-19 | Operational analytics | At minimum counts by status/category/severity/department | TODO |
 | FR-20 | Public tracking page | Summary, category, severity, status, department, dates, history | TODO |
 | FR-21 | Privacy | No contact PII, internal notes, raw AI payload, or audit metadata publicly | TODO |
-| FR-22 | Persistent database | All reports, analysis, history, assignments, duplicate links, metadata persisted | TODO |
+| FR-22 | Persistent database | All reports, analysis, history, assignments, duplicate links, metadata persisted | DONE |
 | FR-23 | Meaningful external API | AI plus mapping/storage/notification integration with visible value | TODO |
 | NFR-01 | Responsive UX | Mobile, tablet, desktop verified | TODO |
 | NFR-02 | API consistency | Standard success/error envelope and correct HTTP status | TODO |
 | NFR-03 | Error handling | Validation, AI, database, mapping, upload, and unexpected errors handled | TODO |
-| NFR-04 | Security | RLS, least privilege, secrets, rate limits, upload controls, audit log | TODO |
-| NFR-05 | Code quality | Feature boundaries, SOLID ports, no business logic in UI/API controllers | TODO |
-| NFR-06 | Documentation | Setup, architecture, schema, API, attribution, testing, demo credentials | TODO |
+| NFR-04 | Security | RLS, least privilege, secrets, rate limits, upload controls, audit log | DONE |
+| NFR-05 | Code quality | Feature boundaries, SOLID ports, no business logic in UI/API controllers | DONE |
+| NFR-06 | Documentation | Setup, architecture, schema, API, attribution, testing, demo credentials | DONE |
 
 ## Completion rule
 
