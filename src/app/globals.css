@@ -41,3 +41,33 @@ body {
   background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
 }
+
+.admin-card {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s ease-in-out;
+}
+
+.admin-card:hover {
+  border-color: rgba(71, 85, 105, 0.8);
+  box-shadow: 0 15px 35px -10px rgba(0, 0, 0, 0.7);
+}
+
+.admin-glow-critical {
+  box-shadow: 0 0 25px -5px rgba(244, 63, 94, 0.15);
+}
+
+.admin-glow-amber {
+  box-shadow: 0 0 25px -5px rgba(245, 158, 11, 0.15);
+}
+
+.admin-glow-emerald {
+  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.15);
+}
+
+.admin-glow-blue {
+  box-shadow: 0 0 25px -5px rgba(59, 130, 246, 0.15);
+}
+

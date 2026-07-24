@@ -1,5 +1,6 @@
 'use server';
 
+import { NotificationDispatcher } from '@/features/government-management/application/NotificationDispatcher';
 import { NoteVisibility, ReportStatus } from '@/shared/domain/types';
 import { createAdminClient } from '@/shared/infrastructure/supabase/admin';
 import { revalidatePath } from 'next/cache';
@@ -13,6 +14,12 @@ export async function assignDepartmentAction(formData: FormData): Promise<void> 
   }
 
   const adminClient = createAdminClient();
+
+  const { data: report } = await adminClient
+    .from('reports')
+    .select('tracking_code')
+    .eq('id', reportId)
+    .single();
 
   const { error: updateError } = await adminClient
     .from('reports')
@@ -30,13 +37,25 @@ export async function assignDepartmentAction(formData: FormData): Promise<void> 
     .eq('id', departmentId)
     .single();
 
+  const noteMsg = `Assigned to ${dept?.name || 'Department'}.`;
+
   await adminClient.from('report_status_history').insert({
     report_id: reportId,
     from_status: 'under_review',
     to_status: 'assigned',
-    note: `Assigned to ${dept?.name || 'Department'}.`,
+    note: noteMsg,
     visibility: 'public',
   });
+
+  if (report) {
+    await NotificationDispatcher.dispatchNotification({
+      reportId,
+      trackingCode: report.tracking_code,
+      type: 'department_assigned',
+      title: 'Department Assigned',
+      message: noteMsg,
+    });
+  }
 
   revalidatePath(`/government/reports/${reportId}`);
   revalidatePath('/government/dashboard');

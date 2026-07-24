@@ -120,7 +120,7 @@ CRITICAL SECURITY RULES:
       const groqRes = await groqProvider.analyzeReport({
         description,
         locationText,
-        citizenCategory: (citizenCategory?.toUpperCase() as any) || 'OTHER',
+        citizenCategory: citizenCategory?.toUpperCase() || 'OTHER',
       });
       return {
         category: groqRes.category.toLowerCase() as IssueCategory,

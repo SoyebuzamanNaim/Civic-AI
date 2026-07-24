@@ -1,12 +1,11 @@
 {
-  "name": "CivicPulse AI Infrastructure Platform",
+  "name": "CivicPulse Infrastructure Platform",
   "short_name": "CivicPulse",
-  "description": "AI-powered civic infrastructure reporting and government case management platform.",
+  "description": "AI-Powered Civic Infrastructure Incident Reporting and Case Management Platform",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#020617",
-  "theme_color": "#020617",
-  "orientation": "portrait-primary",
+  "background_color": "#0f172a",
+  "theme_color": "#0f766e",
   "icons": [
     {
       "src": "/favicon.ico",

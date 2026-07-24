@@ -31,7 +31,8 @@ export class SubmitReportUseCase {
       const aiAnalysis = await this.aiAdapter.analyzeReport(
         input.description,
         input.locationText,
-        input.citizenCategory
+        input.citizenCategory,
+        input.evidenceUrl
       );
 
       const adminClient = createAdminClient();
@@ -65,6 +66,16 @@ export class SubmitReportUseCase {
       if (rpcError || !reportId) {
         console.error('RPC Report Creation Error:', rpcError);
         return err(new Error(rpcError?.message || 'Failed to persist report in database.'));
+      }
+
+      // Persist evidence record if provided
+      if (input.evidenceUrl) {
+        await adminClient.from('report_evidence').insert({
+          report_id: reportId as string,
+          type: 'url',
+          external_url: input.evidenceUrl,
+          mime_type: 'image/jpeg',
+        });
       }
 
       // 3. Multi-Signal Duplicate Detection (Non-blocking search)

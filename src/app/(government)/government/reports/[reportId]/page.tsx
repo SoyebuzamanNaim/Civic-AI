@@ -100,32 +100,32 @@ export default async function GovernmentReportDetailPage({
     .order('created_at', { ascending: true });
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6 lg:p-8 space-y-8">
-      <div className="flex items-center justify-between border-b border-slate-800 pb-6">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6 lg:p-8 space-y-8 selection:bg-teal-500/30 selection:text-teal-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-6 gap-4">
         <div className="flex items-center gap-4">
           <Link
             href="/government/dashboard"
-            className="p-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition"
+            className="p-2.5 bg-slate-900 border border-slate-700/80 hover:bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition shadow-sm"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-bold text-blue-400 bg-blue-500/10 px-2.5 py-0.5 rounded-full border border-blue-500/20">
+              <span className="font-mono text-xs font-bold text-teal-400 bg-teal-500/10 px-3 py-0.5 rounded-full border border-teal-500/20">
                 {report.tracking_code}
               </span>
-              <span className="text-xs text-slate-400">ID: {report.id}</span>
+              <span className="text-xs text-slate-500">ID: {report.id}</span>
             </div>
-            <h1 className="text-2xl font-extrabold text-white mt-1 capitalize">
+            <h1 className="text-2xl sm:text-3xl font-black text-white mt-1 capitalize tracking-tight">
               {report.final_category.replace('_', ' ')} Issue
             </h1>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <LanguageToggle />
-          <span className="text-xs text-slate-400">Current Status:</span>
-          <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 font-bold text-xs rounded-xl border border-emerald-500/20 uppercase">
+          <span className="text-xs text-slate-400 font-medium">Status:</span>
+          <span className="px-3 py-1 bg-emerald-500/10 text-emerald-300 font-bold text-xs rounded-full border border-emerald-500/20 uppercase shadow-sm">
             {report.status.replace('_', ' ')}
           </span>
         </div>
@@ -133,8 +133,8 @@ export default async function GovernmentReportDetailPage({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-            <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-3">
+          <div className="admin-card rounded-3xl p-6 space-y-4 shadow-xl">
+            <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800/80 pb-3">
               Citizen Submission Summary
             </h2>
             <p className="text-slate-100 text-sm leading-relaxed">{report.description}</p>
@@ -183,16 +183,26 @@ export default async function GovernmentReportDetailPage({
             )}
 
             {/* AI Actionable Resolution Steps */}
-            <div className="p-4 bg-slate-950/90 border border-emerald-500/30 rounded-2xl space-y-2">
-              <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-emerald-400" /> AI Recommended Action Plan & Resolution Steps
-              </h3>
-              <ol className="space-y-1.5 text-xs text-slate-300 list-decimal list-inside pl-1">
-                <li>Dispatch municipal inspection crew to verify location and safety hazards.</li>
-                <li>Formulate containment plan and assign technical repair unit.</li>
-                <li>Execute structural repairs and notify citizen upon completion verification.</li>
-              </ol>
-            </div>
+            {(() => {
+              const rawSteps = (aiAnalysis?.raw_output as { actionableResolutionSteps?: string[] } | null)?.actionableResolutionSteps;
+              const steps = rawSteps && rawSteps.length > 0 ? rawSteps : [
+                `Dispatch municipal ${report.final_category.replace('_', ' ')} inspection team to ${report.location_text}.`,
+                `Issue immediate priority tag (${report.severity_level.toUpperCase()} - Score: ${Math.round(report.severity_score)}/100) and isolate hazardous zone.`,
+                `Coordinate with assigned agency for structural repair and log completion verification.`,
+              ];
+              return (
+                <div className="p-4 bg-slate-950/90 border border-emerald-500/30 rounded-2xl space-y-2">
+                  <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-emerald-400" /> AI Recommended Action Plan & Resolution Steps
+                  </h3>
+                  <ol className="space-y-1.5 text-xs text-slate-300 list-decimal list-inside pl-1">
+                    {steps.map((step: string, idx: number) => (
+                      <li key={idx} className="leading-relaxed">{step}</li>
+                    ))}
+                  </ol>
+                </div>
+              );
+            })()}
           </div>
 
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">

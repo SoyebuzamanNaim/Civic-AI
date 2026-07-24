@@ -1,7 +1,7 @@
 'use client';
 
 import { submitReportAction } from '@/features/reporting/presentation/actions';
-import { AlertTriangle, Construction, Droplets, Lightbulb, LocateFixed, Send, ShieldCheck, Trash2, Wrench } from 'lucide-react';
+import { AlertTriangle, Camera, Construction, Droplets, Lightbulb, LocateFixed, Send, ShieldCheck, Trash2, Wrench } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 
@@ -19,6 +19,7 @@ export function SubmissionForm() {
   const [description, setDescription] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('pothole');
   const [locationText, setLocationText] = useState('');
+  const [evidenceUrl, setEvidenceUrl] = useState('');
   const [coords, setCoords] = useState<{ lat?: number; lng?: number }>({});
   const [geoStatus, setGeoStatus] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -81,6 +82,22 @@ export function SubmissionForm() {
         <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]"><input type="text" id="locationText" name="locationText" value={locationText} onChange={(event) => setLocationText(event.target.value)} aria-invalid={Boolean(fieldErrors.locationText)} placeholder="e.g. North gate of Dhanmondi Lake" className="min-w-0 rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10" /><button type="button" onClick={handleGeolocate} className="inline-flex items-center justify-center gap-2 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-xs font-bold text-teal-800 transition hover:bg-teal-100"><LocateFixed className="size-4" /> Use my location</button></div>
         {geoStatus && <p className="mt-2 text-xs font-medium text-teal-800">{geoStatus}</p>}
         {fieldErrors.locationText && <p className="mt-2 text-xs font-medium text-rose-700">{fieldErrors.locationText}</p>}
+      </div>
+
+      <div>
+        <label htmlFor="evidenceUrl" className="text-sm font-bold text-slate-800 flex items-center gap-2">
+          <Camera className="size-4 text-teal-700" /> Photo or Image Evidence <span className="text-xs font-normal text-slate-500">(Optional)</span>
+        </label>
+        <p className="mt-1 text-xs text-slate-500">Provide an image URL showing the damaged area for AI multimodal vision assessment.</p>
+        <input
+          type="url"
+          id="evidenceUrl"
+          name="evidenceUrl"
+          value={evidenceUrl}
+          onChange={(e) => setEvidenceUrl(e.target.value)}
+          placeholder="https://example.com/images/pothole.jpg"
+          className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-600/10"
+        />
       </div>
 
       <section className="rounded-2xl border border-teal-100 bg-teal-50/65 p-4">
