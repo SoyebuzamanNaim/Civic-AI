@@ -122,6 +122,15 @@ CREATE POLICY "Officials insert status history" ON report_status_history
     )
   );
 
+CREATE POLICY "Allow server insert status history" ON report_status_history
+  FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+CREATE POLICY "Allow server update reports" ON reports
+  FOR UPDATE TO anon, authenticated USING (true);
+
+CREATE POLICY "Allow server manage duplicate links" ON report_duplicate_links
+  FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);
+
 -- 9. Storage Security Bucket & Policies
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
