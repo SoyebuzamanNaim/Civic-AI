@@ -1,9 +1,9 @@
 'use client';
 
 import { submitReportAction } from '@/features/reporting/presentation/actions';
-import { AlertTriangle, Camera, Construction, Droplets, Lightbulb, LocateFixed, Send, ShieldCheck, Trash2, Wrench } from 'lucide-react';
+import { AlertTriangle, Camera, Construction, Droplets, Lightbulb, LocateFixed, RefreshCw, Send, ShieldCheck, Trash2, WifiOff, Wrench } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 
 const CATEGORIES = [
   { id: 'pothole', label: 'Pothole or road hazard', icon: Construction },
@@ -24,6 +24,57 @@ export function SubmissionForm() {
   const [geoStatus, setGeoStatus] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [isOffline, setIsOffline] = useState(() => (typeof window !== 'undefined' ? !navigator.onLine : false));
+  const [offlineStatusMsg, setOfflineStatusMsg] = useState<string | null>(null);
+
+  const syncOfflineQueue = async () => {
+    try {
+      const saved = localStorage.getItem('civicpulse_offline_reports');
+      if (!saved) return;
+      const queue: Array<Record<string, string>> = JSON.parse(saved);
+      if (!queue.length) return;
+
+      setOfflineStatusMsg(`Syncing ${queue.length} offline report(s) to server…`);
+
+      for (const item of queue) {
+        const formData = new FormData();
+        Object.entries(item).forEach(([k, v]) => formData.set(k, v));
+        const res = await submitReportAction(null, formData);
+        if (res.success) {
+          console.info('Offline report synced successfully:', res.data.trackingCode);
+        }
+      }
+
+      localStorage.removeItem('civicpulse_offline_reports');
+      setOfflineStatusMsg('Offline reports successfully synced to server!');
+      setTimeout(() => setOfflineStatusMsg(null), 5000);
+    } catch (e) {
+      console.warn('Offline sync error:', e);
+    }
+  };
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      syncOfflineQueue();
+    };
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Initial check for pending queue on mount
+    if (typeof window !== 'undefined' && navigator.onLine) {
+      setTimeout(() => {
+        syncOfflineQueue();
+      }, 0);
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleGeolocate = () => {
     if (!navigator.geolocation) { setGeoStatus('Your browser cannot share location. Please enter a landmark or address.'); return; }
@@ -45,6 +96,21 @@ export function SubmissionForm() {
     formData.set('citizenCategory', selectedCategory);
     if (coords.lat) formData.set('latitude', coords.lat.toString());
     if (coords.lng) formData.set('longitude', coords.lng.toString());
+
+    // Offline handling fallback
+    if (!navigator.onLine) {
+      const formObject: Record<string, string> = {};
+      formData.forEach((val, key) => { formObject[key] = val.toString(); });
+
+      const existing = localStorage.getItem('civicpulse_offline_reports');
+      const queue = existing ? JSON.parse(existing) : [];
+      queue.push(formObject);
+      localStorage.setItem('civicpulse_offline_reports', JSON.stringify(queue));
+
+      setOfflineStatusMsg('Network offline. Report saved locally in PWA queue. It will auto-submit when connection is restored.');
+      return;
+    }
+
     startTransition(async () => {
       const res = await submitReportAction(null, formData);
       if (!res.success) { setErrorMsg(res.error); if (res.fieldErrors) setFieldErrors(res.fieldErrors); }
@@ -54,6 +120,19 @@ export function SubmissionForm() {
 
   return (
     <form onSubmit={handleSubmit} className="public-panel flex max-w-3xl flex-col gap-7 rounded-3xl border border-slate-200 p-5 text-slate-900 sm:p-8">
+      {isOffline && (
+        <div className="flex items-center gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-xs font-bold text-amber-900 shadow-sm">
+          <WifiOff className="size-5 shrink-0 text-amber-700" />
+          <span>You are currently offline. Reports will be saved locally and auto-synced when connection returns.</span>
+        </div>
+      )}
+
+      {offlineStatusMsg && (
+        <div className="flex items-center gap-3 rounded-2xl border border-teal-300 bg-teal-50 p-4 text-xs font-bold text-teal-900 shadow-sm">
+          <RefreshCw className="size-5 shrink-0 text-teal-700 animate-spin" />
+          <span>{offlineStatusMsg}</span>
+        </div>
+      )}
       <header className="border-b border-slate-200 pb-6">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-teal-700">New civic report</p>
         <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-950">Tell us what needs attention.</h1>

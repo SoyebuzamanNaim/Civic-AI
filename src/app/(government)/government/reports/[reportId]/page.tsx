@@ -99,24 +99,59 @@ export default async function GovernmentReportDetailPage({
     .eq('report_id', reportId)
     .order('created_at', { ascending: true });
 
+  // AI Auto-Suggestion Logic for Department Assignment
+  let suggestedDepartmentId = '';
+  let suggestedDepartmentName = '';
+
+  const deptRecommendationText = aiAnalysis?.department_recommendation?.toLowerCase() || '';
+
+  if (deptRecommendationText) {
+    const matched = (departments || []).find(
+      (d) => deptRecommendationText.includes(d.name.toLowerCase()) || d.name.toLowerCase().includes(deptRecommendationText)
+    );
+    if (matched) {
+      suggestedDepartmentId = matched.id;
+      suggestedDepartmentName = matched.name;
+    }
+  }
+
+  if (!suggestedDepartmentId) {
+    const categoryMap: Record<string, string> = {
+      pothole: 'Roads & Highways Department',
+      broken_streetlight: 'Street Lighting & Power',
+      water_leak: 'Water & Sewerage Authority',
+      illegal_dumping: 'Waste Management & Sanitation',
+      other: 'General Public Works',
+    };
+    const targetName = categoryMap[report.final_category] || 'General Public Works';
+    const matched = (departments || []).find((d) => d.name.toLowerCase() === targetName.toLowerCase());
+    if (matched) {
+      suggestedDepartmentId = matched.id;
+      suggestedDepartmentName = matched.name;
+    }
+  }
+
+  const defaultDepartmentValue = report.assigned_department_id || suggestedDepartmentId;
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 sm:p-6 lg:p-8 space-y-8 selection:bg-teal-500/30 selection:text-teal-200">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-6 gap-4">
+    <div className="public-page min-h-screen text-slate-900 p-4 sm:p-6 lg:p-8 space-y-8 selection:bg-teal-100 selection:text-teal-900">
+      {/* Top Bar Navigation */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200/80 pb-6 gap-4">
         <div className="flex items-center gap-4">
           <Link
             href="/government/dashboard"
-            className="p-2.5 bg-slate-900 border border-slate-700/80 hover:bg-slate-800 rounded-2xl text-slate-400 hover:text-white transition shadow-sm"
+            className="p-2.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-2xl text-slate-600 hover:text-slate-950 transition shadow-sm"
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xs font-bold text-teal-400 bg-teal-500/10 px-3 py-0.5 rounded-full border border-teal-500/20">
+              <span className="font-mono text-xs font-extrabold text-teal-800 bg-teal-50 px-3 py-0.5 rounded-full border border-teal-200">
                 {report.tracking_code}
               </span>
-              <span className="text-xs text-slate-500">ID: {report.id}</span>
+              <span className="text-xs text-slate-500 font-medium">ID: {report.id}</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-white mt-1 capitalize tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-950 mt-1 capitalize tracking-tight">
               {report.final_category.replace('_', ' ')} Issue
             </h1>
           </div>
@@ -124,8 +159,8 @@ export default async function GovernmentReportDetailPage({
 
         <div className="flex items-center gap-3 flex-wrap">
           <LanguageToggle />
-          <span className="text-xs text-slate-400 font-medium">Status:</span>
-          <span className="px-3 py-1 bg-emerald-500/10 text-emerald-300 font-bold text-xs rounded-full border border-emerald-500/20 uppercase shadow-sm">
+          <span className="text-xs text-slate-500 font-bold">Status:</span>
+          <span className="px-3 py-1 bg-emerald-50 text-emerald-800 font-extrabold text-xs rounded-full border border-emerald-200 uppercase shadow-sm">
             {report.status.replace('_', ' ')}
           </span>
         </div>
@@ -133,52 +168,54 @@ export default async function GovernmentReportDetailPage({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
+          {/* Citizen Submission Summary Card */}
           <div className="admin-card rounded-3xl p-6 space-y-4 shadow-xl">
-            <h2 className="text-sm font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800/80 pb-3">
+            <h2 className="text-sm font-extrabold text-slate-950 uppercase tracking-wider border-b border-slate-200 pb-3">
               Citizen Submission Summary
             </h2>
-            <p className="text-slate-100 text-sm leading-relaxed">{report.description}</p>
+            <p className="text-slate-800 text-sm leading-relaxed">{report.description}</p>
 
-            <div className="flex items-center gap-2 text-xs text-slate-400 pt-2 border-t border-slate-800/60">
-              <MapPin className="w-4 h-4 text-blue-400" />
-              <span>Location: <strong className="text-slate-200">{report.location_text}</strong></span>
+            <div className="flex items-center gap-2 text-xs text-slate-600 pt-2 border-t border-slate-200">
+              <MapPin className="w-4 h-4 text-teal-700" />
+              <span>Location: <strong className="text-slate-950">{report.location_text}</strong></span>
               {report.latitude && (
-                <span className="text-slate-500">({report.latitude}, {report.longitude})</span>
+                <span className="text-slate-500 font-mono">({report.latitude}, {report.longitude})</span>
               )}
             </div>
           </div>
 
-          <div className="bg-slate-900 border border-blue-900/40 rounded-3xl p-6 space-y-4 shadow-xl bg-gradient-to-b from-blue-950/20 to-slate-900">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2 text-blue-400 font-bold text-sm">
-                <Sparkles className="w-5 h-5" /> AI Severity & Taxonomy Assessment
+          {/* AI Severity & Assessment Card */}
+          <div className="bg-gradient-to-br from-blue-50/60 via-white to-white border border-blue-200 rounded-3xl p-6 space-y-4 shadow-xl">
+            <div className="flex items-center justify-between border-b border-blue-200/80 pb-3">
+              <div className="flex items-center gap-2 text-blue-900 font-extrabold text-sm">
+                <Sparkles className="w-5 h-5 text-blue-700" /> AI Severity & Taxonomy Assessment
               </div>
-              <span className="text-[11px] text-slate-400 font-mono">
+              <span className="text-[11px] text-slate-500 font-mono font-medium">
                 Provider: {aiAnalysis?.provider || 'fallback'} ({aiAnalysis?.model || 'none'})
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
-                <span className="text-[11px] text-slate-400 block">AI Category Confidence</span>
-                <span className="text-lg font-bold text-blue-400">
+              <div className="p-3.5 bg-white border border-slate-200 rounded-2xl space-y-1 shadow-sm">
+                <span className="text-[11px] text-slate-500 font-semibold block">AI Category Confidence</span>
+                <span className="text-lg font-extrabold text-blue-700">
                   {Math.round((aiAnalysis?.category_confidence || 0.8) * 100)}%
                 </span>
               </div>
-              <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
-                <span className="text-[11px] text-slate-400 block">Severity Score (0-100)</span>
-                <span className="text-lg font-bold text-amber-400">{Math.round(report.severity_score)} / 100</span>
+              <div className="p-3.5 bg-white border border-slate-200 rounded-2xl space-y-1 shadow-sm">
+                <span className="text-[11px] text-slate-500 font-semibold block">Severity Score (0-100)</span>
+                <span className="text-lg font-extrabold text-amber-700">{Math.round(report.severity_score)} / 100</span>
               </div>
-              <div className="p-3.5 bg-slate-950/60 border border-slate-800 rounded-xl space-y-1">
-                <span className="text-[11px] text-slate-400 block">Severity Level</span>
-                <span className="text-lg font-bold text-rose-400 capitalize">{report.severity_level}</span>
+              <div className="p-3.5 bg-white border border-slate-200 rounded-2xl space-y-1 shadow-sm">
+                <span className="text-[11px] text-slate-500 font-semibold block">Severity Level</span>
+                <span className="text-lg font-extrabold text-rose-700 capitalize">{report.severity_level}</span>
               </div>
             </div>
 
             {aiAnalysis?.severity_rationale && (
-              <div className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl text-xs space-y-1">
-                <span className="font-semibold text-slate-300 block">AI Severity Rationale:</span>
-                <p className="text-slate-400">{aiAnalysis.severity_rationale}</p>
+              <div className="p-3.5 bg-white border border-slate-200 rounded-2xl text-xs space-y-1 shadow-sm">
+                <span className="font-extrabold text-slate-900 block">AI Severity Rationale:</span>
+                <p className="text-slate-600 leading-relaxed">{aiAnalysis.severity_rationale}</p>
               </div>
             )}
 
@@ -191,11 +228,11 @@ export default async function GovernmentReportDetailPage({
                 `Coordinate with assigned agency for structural repair and log completion verification.`,
               ];
               return (
-                <div className="p-4 bg-slate-950/90 border border-emerald-500/30 rounded-2xl space-y-2">
-                  <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-emerald-400" /> AI Recommended Action Plan & Resolution Steps
+                <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-2xl space-y-2">
+                  <h3 className="text-xs font-extrabold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-emerald-700" /> AI Recommended Action Plan & Resolution Steps
                   </h3>
-                  <ol className="space-y-1.5 text-xs text-slate-300 list-decimal list-inside pl-1">
+                  <ol className="space-y-1.5 text-xs text-emerald-950 list-decimal list-inside pl-1 font-medium">
                     {steps.map((step: string, idx: number) => (
                       <li key={idx} className="leading-relaxed">{step}</li>
                     ))}
@@ -205,10 +242,11 @@ export default async function GovernmentReportDetailPage({
             })()}
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-            <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-3 flex items-center justify-between">
+          {/* Potential Duplicate Reports Card */}
+          <div className="admin-card rounded-3xl p-6 space-y-4 shadow-xl">
+            <h2 className="text-sm font-extrabold text-slate-950 uppercase tracking-wider border-b border-slate-200 pb-3 flex items-center justify-between">
               <span>Potential Duplicate Reports</span>
-              <span className="text-xs text-blue-400 font-semibold bg-blue-500/10 px-2.5 py-0.5 rounded-full">
+              <span className="text-xs text-blue-800 font-bold bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
                 {duplicateLinks.length} Suggested Matches
               </span>
             </h2>
@@ -220,16 +258,16 @@ export default async function GovernmentReportDetailPage({
                 {duplicateLinks.map((link) => {
                   const cand = link.reports as unknown as CandidateReport;
                   return (
-                    <div key={link.id} className="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-3">
+                    <div key={link.id} className="p-4 bg-white border border-slate-200 rounded-2xl space-y-3 shadow-sm">
                       <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs font-bold text-blue-400">{cand?.tracking_code}</span>
-                        <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                        <span className="font-mono text-xs font-bold text-teal-800">{cand?.tracking_code}</span>
+                        <span className="text-xs font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
                           {Math.round(link.similarity_score * 100)}% Multi-Signal Match
                         </span>
                       </div>
-                      <p className="text-xs text-slate-300 line-clamp-2">{cand?.description}</p>
+                      <p className="text-xs text-slate-700 line-clamp-2">{cand?.description}</p>
 
-                      <div className="grid grid-cols-4 gap-2 text-[10px] text-slate-400 bg-slate-900 p-2 rounded-lg border border-slate-800 text-center">
+                      <div className="grid grid-cols-4 gap-2 text-[10px] text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-200 text-center font-medium">
                         <div>Semantic: <strong>{Math.round(link.semantic_score * 100)}%</strong></div>
                         <div>Distance: <strong>{Math.round(link.distance_score * 100)}%</strong></div>
                         <div>Temporal: <strong>{Math.round(link.temporal_score * 100)}%</strong></div>
@@ -242,76 +280,105 @@ export default async function GovernmentReportDetailPage({
             )}
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-            <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider border-b border-slate-800 pb-3 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-blue-400" /> Full Audit & Activity History
+          {/* Full Audit & Activity History */}
+          <div className="admin-card rounded-3xl p-6 space-y-4 shadow-xl">
+            <h2 className="text-sm font-extrabold text-slate-950 uppercase tracking-wider border-b border-slate-200 pb-3 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-teal-700" /> Full Audit & Activity History
             </h2>
 
             <div className="space-y-3">
               {(historyLogs || []).map((h) => (
-                <div key={h.id} className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl space-y-1">
+                <div key={h.id} className="p-3.5 bg-white border border-slate-200 rounded-xl space-y-1 shadow-sm">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-200 capitalize">
+                    <span className="font-bold text-slate-900 capitalize">
                       Transition: {h.from_status || 'New'} → {h.to_status.replace('_', ' ')}
                     </span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
-                      h.visibility === 'public' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                    <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-extrabold ${
+                      h.visibility === 'public' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-amber-50 text-amber-800 border border-amber-200'
                     }`}>
                       {h.visibility}
                     </span>
                   </div>
-                  {h.note && <p className="text-xs text-slate-400">{h.note}</p>}
-                  <span className="text-[10px] text-slate-500 block pt-1">{new Date(h.created_at).toLocaleString()}</span>
+                  {h.note && <p className="text-xs text-slate-600">{h.note}</p>}
+                  <span className="text-[10px] text-slate-400 block pt-1 font-medium">{new Date(h.created_at).toLocaleString()}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
+        {/* Sidebar Controls */}
         <div className="space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2 border-b border-slate-800 pb-3">
-              <Building2 className="w-4 h-4 text-amber-400" /> Department Assignment
+          {/* Department Assignment Card with AI Suggestion */}
+          <div className="admin-card rounded-3xl p-6 space-y-4 shadow-xl border border-slate-200">
+            <h3 className="text-sm font-extrabold text-slate-950 flex items-center gap-2 border-b border-slate-200 pb-3">
+              <Building2 className="w-4 h-4 text-amber-600" /> Department Assignment
             </h3>
+
+            {/* AI Suggestion Highlight Banner */}
+            {suggestedDepartmentName && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl space-y-1 shadow-sm">
+                <div className="flex items-center justify-between gap-1 text-xs">
+                  <span className="font-extrabold text-amber-900 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-amber-600 shrink-0" /> AI Auto-Suggested
+                  </span>
+                  <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-extrabold rounded-md border border-amber-300">
+                    AI Recommended
+                  </span>
+                </div>
+                <p className="text-xs text-slate-800 font-bold">{suggestedDepartmentName}</p>
+                <p className="text-[11px] text-slate-500 leading-tight">
+                  Suggested based on reported issue category and automated infrastructure taxonomy.
+                </p>
+              </div>
+            )}
 
             <form action={assignDepartmentAction} className="space-y-3">
               <input type="hidden" name="reportId" value={reportId} />
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Assign Responsible Department</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Assign Responsible Department
+                </label>
                 <select
                   name="departmentId"
-                  defaultValue={report.assigned_department_id || ''}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  defaultValue={defaultDepartmentValue}
+                  className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
                 >
                   <option value="" disabled>Select Department</option>
-                  {(departments || []).map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
+                  {(departments || []).map((d) => {
+                    const isAiSuggested = d.id === suggestedDepartmentId;
+                    return (
+                      <option key={d.id} value={d.id}>
+                        {d.name} {isAiSuggested ? '✨ (AI Suggested)' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 transition"
+                className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-amber-900/15 transition flex items-center justify-center gap-1.5"
               >
-                Assign Department
+                <Building2 className="w-4 h-4" /> Assign Department
               </button>
             </form>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-            <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-3">
+          {/* Update Case Status Card */}
+          <div className="admin-card rounded-3xl p-6 space-y-4 shadow-xl border border-slate-200">
+            <h3 className="text-sm font-extrabold text-slate-950 border-b border-slate-200 pb-3">
               Update Case Status
             </h3>
 
             <form action={changeReportStatusAction} className="space-y-3">
               <input type="hidden" name="reportId" value={reportId} />
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Target Status Transition</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Target Status Transition</label>
                 <select
                   name="newStatus"
                   defaultValue={report.status}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-teal-600 shadow-sm"
                 >
                   <option value="under_review">Under Review</option>
                   <option value="assigned">Assigned</option>
@@ -322,27 +389,28 @@ export default async function GovernmentReportDetailPage({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Status Note (Optional)</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Status Note (Optional)</label>
                 <input
                   type="text"
                   name="note"
                   placeholder="Reason for status change..."
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-slate-200 focus:outline-none"
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-600 shadow-sm font-medium"
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-blue-500/20 transition"
+                className="w-full py-2.5 bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-xs rounded-xl shadow-md shadow-teal-900/15 transition"
               >
                 Update Status
               </button>
             </form>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
-            <h3 className="text-sm font-bold text-white border-b border-slate-800 pb-3 flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-emerald-400" /> Add Progress Note
+          {/* Add Progress Note Card */}
+          <div className="admin-card rounded-3xl p-6 space-y-4 shadow-xl border border-slate-200">
+            <h3 className="text-sm font-extrabold text-slate-950 border-b border-slate-200 pb-3 flex items-center gap-2">
+              <MessageSquare className="w-4 h-4 text-emerald-700" /> Add Progress Note
             </h3>
 
             <form action={addProgressNoteAction} className="space-y-3">
@@ -352,37 +420,38 @@ export default async function GovernmentReportDetailPage({
                 rows={3}
                 required
                 placeholder="Type note or resolution commentary..."
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 shadow-sm font-medium"
               />
 
-              <div className="flex items-center gap-4 text-xs">
-                <label className="flex items-center gap-1.5 cursor-pointer text-slate-300">
-                  <input type="radio" name="visibility" value="public" defaultChecked className="text-emerald-500" /> Public
+              <div className="flex items-center gap-4 text-xs font-bold">
+                <label className="flex items-center gap-1.5 cursor-pointer text-slate-800">
+                  <input type="radio" name="visibility" value="public" defaultChecked className="text-emerald-600" /> Public
                 </label>
-                <label className="flex items-center gap-1.5 cursor-pointer text-slate-300">
-                  <input type="radio" name="visibility" value="internal" className="text-amber-500" /> Internal
+                <label className="flex items-center gap-1.5 cursor-pointer text-slate-800">
+                  <input type="radio" name="visibility" value="internal" className="text-amber-600" /> Internal
                 </label>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-500/20 transition"
+                className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-900/15 transition"
               >
                 Add Progress Note
               </button>
             </form>
           </div>
 
+          {/* Citizen Contact Info */}
           {contact && (
-            <div className="bg-slate-900 border border-emerald-900/40 rounded-3xl p-6 space-y-3 shadow-xl">
-              <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-800 pb-2">
-                <User className="w-4 h-4" /> Citizen Contact Info (Confidential)
+            <div className="bg-emerald-50/80 border border-emerald-200 rounded-3xl p-6 space-y-3 shadow-xl">
+              <h3 className="text-xs font-extrabold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5 border-b border-emerald-200 pb-2">
+                <User className="w-4 h-4 text-emerald-700" /> Citizen Contact Info (Confidential)
               </h3>
-              <div className="space-y-1.5 text-xs text-slate-300">
-                {contact.name && <div>Name: <strong className="text-white">{contact.name}</strong></div>}
-                {contact.email && <div>Email: <strong className="text-white">{contact.email}</strong></div>}
-                {contact.phone && <div>Phone: <strong className="text-white">{contact.phone}</strong></div>}
-                <div className="text-[10px] text-slate-500 pt-1">
+              <div className="space-y-1.5 text-xs text-emerald-950 font-semibold">
+                {contact.name && <div>Name: <strong className="text-slate-950 font-bold">{contact.name}</strong></div>}
+                {contact.email && <div>Email: <strong className="text-slate-950 font-bold">{contact.email}</strong></div>}
+                {contact.phone && <div>Phone: <strong className="text-slate-950 font-bold">{contact.phone}</strong></div>}
+                <div className="text-[10px] text-emerald-800 pt-1 font-bold">
                   Consent given: {contact.consent_to_contact ? 'Yes' : 'No'}
                 </div>
               </div>

@@ -24,7 +24,7 @@ class MockProvider implements ReportAnalysisProvider {
     private behavior: () => Promise<ReportAnalysisResult>
   ) {}
 
-  async analyzeReport(_input: ReportAnalysisInput): Promise<ReportAnalysisResult> {
+  async analyzeReport(): Promise<ReportAnalysisResult> {
     return await this.behavior();
   }
 }

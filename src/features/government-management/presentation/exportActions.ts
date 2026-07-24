@@ -26,7 +26,6 @@ export async function exportReportsCsvAction(): Promise<string> {
   const headers = ['Tracking Code', 'Category', 'Severity Level', 'Severity Score', 'Status', 'Location', 'Department', 'Submitted At'];
   const rows = reports.map((r) => {
     const deptName = (r.departments as unknown as { name: string } | null)?.name || 'Unassigned';
-    const cleanDesc = (r.description || '').replaceAll('"', '""');
     const cleanLoc = (r.location_text || '').replaceAll('"', '""');
     return [
       `"${r.tracking_code}"`,

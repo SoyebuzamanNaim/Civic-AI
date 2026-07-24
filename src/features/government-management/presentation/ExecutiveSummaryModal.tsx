@@ -35,42 +35,42 @@ export function ExecutiveSummaryModal() {
         <button
           type="button"
           onClick={handleDownloadCsv}
-          className="px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-slate-200 text-xs font-bold rounded-xl flex items-center gap-1.5 transition"
+          className="px-3.5 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-950 text-xs font-bold rounded-xl flex items-center gap-1.5 transition shadow-sm"
         >
-          <Download className="w-3.5 h-3.5 text-teal-400" /> Export CSV
+          <Download className="w-3.5 h-3.5 text-teal-700" /> Export CSV
         </button>
         <button
           type="button"
           onClick={handleGenerateSummary}
-          className="px-3 py-2 bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-500 hover:to-blue-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-md shadow-teal-500/20 transition"
+          className="px-3.5 py-2.5 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-md shadow-teal-900/15 transition"
         >
-          <Sparkles className="w-3.5 h-3.5" /> Executive Brief
+          <Sparkles className="w-3.5 h-3.5 text-teal-200" /> Executive Brief
         </button>
       </div>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-700/80 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl relative text-slate-100">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2 text-teal-400 font-extrabold text-sm">
-                <FileText className="w-5 h-5 text-teal-400" /> AI Municipal Executive Brief
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl relative text-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2 text-teal-900 font-extrabold text-sm">
+                <FileText className="w-5 h-5 text-teal-700" /> AI Municipal Executive Brief
               </div>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition font-bold"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {isPending ? (
-              <div className="py-12 text-center text-xs text-slate-400 space-y-2">
-                <Sparkles className="w-8 h-8 mx-auto text-teal-400 animate-spin" />
-                <p>Synthesizing active incident data & AI severity trends...</p>
+              <div className="py-12 text-center text-xs text-slate-500 space-y-2">
+                <Sparkles className="w-8 h-8 mx-auto text-teal-700 animate-spin" />
+                <p className="font-semibold text-slate-700">Synthesizing active incident data & AI severity trends...</p>
               </div>
             ) : (
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-xs font-mono whitespace-pre-wrap leading-relaxed text-slate-200">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs font-mono whitespace-pre-wrap leading-relaxed text-slate-800 shadow-inner">
                 {summaryText}
               </div>
             )}
@@ -79,7 +79,7 @@ export function ExecutiveSummaryModal() {
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold rounded-xl"
+                className="px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl shadow-sm transition"
               >
                 Done
               </button>
