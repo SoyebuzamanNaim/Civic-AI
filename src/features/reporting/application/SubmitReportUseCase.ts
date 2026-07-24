@@ -83,10 +83,10 @@ export class SubmitReportUseCase {
       try {
         const { data: candidateRows } = await adminClient
           .from('reports')
-          .select('id, tracking_code, description, final_category, location_text, latitude, longitude, submitted_at')
+          .select('id, tracking_code, description, final_category, citizen_category, location_text, latitude, longitude, submitted_at')
           .neq('id', reportId)
           .order('submitted_at', { ascending: false })
-          .limit(20);
+          .limit(50);
 
         if (candidateRows && candidateRows.length > 0) {
           const submissionEmbedding = await this.aiAdapter.generateEmbedding(input.description);
@@ -95,7 +95,7 @@ export class SubmitReportUseCase {
           for (const cand of candidateRows) {
             const scoreResult = this.duplicateScorer.scoreCandidate(
               {
-                category: aiAnalysis.category,
+                category: aiAnalysis.category || input.citizenCategory || 'other',
                 latitude: input.latitude,
                 longitude: input.longitude,
                 locationText: input.locationText,
@@ -107,7 +107,7 @@ export class SubmitReportUseCase {
                 id: cand.id,
                 trackingCode: cand.tracking_code,
                 description: cand.description,
-                category: cand.final_category,
+                category: cand.final_category || cand.citizen_category || 'other',
                 latitude: cand.latitude,
                 longitude: cand.longitude,
                 locationText: cand.location_text,

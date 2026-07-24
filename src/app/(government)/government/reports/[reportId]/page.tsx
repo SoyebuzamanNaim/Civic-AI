@@ -1,19 +1,14 @@
-import {
-  addProgressNoteAction,
-  assignDepartmentAction,
-  changeReportStatusAction,
-  updateDuplicateStatusAction,
-} from '@/features/government-management/presentation/managementActions';
+import { DuplicateScoringEngine } from '@/features/duplicate-detection/application/DuplicateScoringEngine';
+import { AuditHistoryTimeline } from '@/features/government-management/presentation/AuditHistoryTimeline';
+import { DepartmentAssignmentCard } from '@/features/government-management/presentation/DepartmentAssignmentCard';
+import { ProgressNoteCard } from '@/features/government-management/presentation/ProgressNoteCard';
+import { StatusUpdateCard } from '@/features/government-management/presentation/StatusUpdateCard';
 import { createAdminClient } from '@/shared/infrastructure/supabase/admin';
 import { LanguageToggle } from '@/shared/presentation/components/LanguageToggle';
 import {
   ArrowLeft,
   Building2,
-  Clock,
-  Eye,
-  Lock,
   MapPin,
-  MessageSquare,
   Sparkles,
   User,
 } from 'lucide-react';
@@ -95,14 +90,181 @@ export default async function GovernmentReportDetailPage({
     `)
     .or(`report_id.eq.${reportId},candidate_report_id.eq.${reportId}`);
 
-  const duplicateLinks = (rawDuplicateLinks || []).map((link) => {
+  interface DuplicateLinkItem {
+    id: string;
+    report_id: string;
+    candidate_report_id: string;
+    similarity_score: number;
+    semantic_score?: number | null;
+    distance_score?: number | null;
+    temporal_score?: number | null;
+    category_score?: number | null;
+    status: string;
+    cand?: CandidateReport | null;
+  }
+
+  let duplicateLinks: DuplicateLinkItem[] = (rawDuplicateLinks || []).map((link) => {
     const rawCand = link.report_id === reportId ? link.candidate_report : link.source_report;
     const cand = (Array.isArray(rawCand) ? rawCand[0] : rawCand) as CandidateReport | null | undefined;
     return {
-      ...link,
+      id: link.id,
+      report_id: link.report_id,
+      candidate_report_id: link.candidate_report_id,
+      similarity_score: link.similarity_score,
+      semantic_score: link.semantic_score,
+      distance_score: link.distance_score,
+      temporal_score: link.temporal_score,
+      category_score: link.category_score,
+      status: link.status,
       cand,
     };
   });
+
+  // Evaluate candidate reports with AI Multi-Signal engine
+  interface EvaluatedCandidate {
+    id?: string;
+    candidate_report_id: string;
+    similarity_score: number;
+    semantic_score: number;
+    distance_score: number;
+    temporal_score: number;
+    category_score: number;
+    status?: string;
+    isSuggested: boolean;
+    cand: CandidateReport;
+  }
+
+  let evaluatedCandidates: EvaluatedCandidate[] = [];
+  let candidatesScannedCount = 0;
+
+  if (report) {
+    try {
+      const scorer = new DuplicateScoringEngine();
+      const { data: candidates } = await adminClient
+        .from('reports')
+        .select('id, tracking_code, description, final_category, citizen_category, location_text, latitude, longitude, submitted_at')
+        .neq('id', reportId)
+        .order('submitted_at', { ascending: false })
+        .limit(50);
+
+      if (candidates && candidates.length > 0) {
+        candidatesScannedCount = candidates.length;
+        for (const cand of candidates) {
+          const existingLink = duplicateLinks.find(
+            (link) => link.candidate_report_id === cand.id || link.report_id === cand.id || link.cand?.id === cand.id
+          );
+
+          const scoreResult = scorer.scoreCandidate(
+            {
+              category: report.final_category || report.citizen_category || 'other',
+              latitude: report.latitude,
+              longitude: report.longitude,
+              locationText: report.location_text,
+              submittedAt: new Date(report.submitted_at),
+              description: report.description,
+            },
+            {
+              id: cand.id,
+              trackingCode: cand.tracking_code,
+              description: cand.description,
+              category: cand.final_category || cand.citizen_category || 'other',
+              latitude: cand.latitude,
+              longitude: cand.longitude,
+              locationText: cand.location_text,
+              submittedAt: cand.submitted_at,
+            }
+          );
+
+          let linkId: string = existingLink?.id || '';
+          let linkStatus = existingLink?.status;
+
+          if (!existingLink && scoreResult.similarityScore >= 0.40) {
+            let insertedLink: any = null;
+            try {
+              const { data: newLink } = await adminClient
+                .from('report_duplicate_links')
+                .insert({
+                  report_id: reportId,
+                  candidate_report_id: cand.id,
+                  similarity_score: scoreResult.similarityScore,
+                  semantic_score: scoreResult.semanticScore,
+                  distance_score: scoreResult.distanceScore,
+                  temporal_score: scoreResult.temporalScore,
+                  category_score: scoreResult.categoryScore,
+                  status: 'suggested',
+                })
+                .select()
+                .maybeSingle();
+
+              insertedLink = newLink;
+            } catch (err) {
+              console.warn('Duplicate link insertion warning:', err);
+            }
+
+            linkId = insertedLink?.id || `link-${cand.id}`;
+            linkStatus = 'suggested';
+
+            const candidateItem: DuplicateLinkItem = {
+              id: linkId,
+              report_id: reportId,
+              candidate_report_id: cand.id,
+              similarity_score: scoreResult.similarityScore,
+              semantic_score: scoreResult.semanticScore,
+              distance_score: scoreResult.distanceScore,
+              temporal_score: scoreResult.temporalScore,
+              category_score: scoreResult.categoryScore,
+              status: 'suggested',
+              cand: {
+                id: cand.id,
+                tracking_code: cand.tracking_code,
+                description: cand.description,
+                final_category: cand.final_category || cand.citizen_category,
+                submitted_at: cand.submitted_at,
+              },
+            };
+
+            duplicateLinks.push(candidateItem);
+          }
+
+          evaluatedCandidates.push({
+            id: linkId,
+            candidate_report_id: cand.id,
+            similarity_score: existingLink ? existingLink.similarity_score : scoreResult.similarityScore,
+            semantic_score: existingLink ? (existingLink.semantic_score ?? scoreResult.semanticScore) : scoreResult.semanticScore,
+            distance_score: existingLink ? (existingLink.distance_score ?? scoreResult.distanceScore) : scoreResult.distanceScore,
+            temporal_score: existingLink ? (existingLink.temporal_score ?? scoreResult.temporalScore) : scoreResult.temporalScore,
+            category_score: existingLink ? (existingLink.category_score ?? scoreResult.categoryScore) : scoreResult.categoryScore,
+            status: linkStatus,
+            isSuggested: scoreResult.isSuggested || (existingLink ? existingLink.similarity_score >= 0.50 : false),
+            cand: {
+              id: cand.id,
+              tracking_code: cand.tracking_code,
+              description: cand.description,
+              final_category: cand.final_category || cand.citizen_category,
+              submitted_at: cand.submitted_at,
+            },
+          });
+        }
+      }
+    } catch (evalErr) {
+      console.warn('On-demand duplicate evaluation warning:', evalErr);
+    }
+  }
+
+  duplicateLinks.sort((a, b) => b.similarity_score - a.similarity_score);
+  evaluatedCandidates.sort((a, b) => b.similarity_score - a.similarity_score);
+
+  const unflaggedCandidates = evaluatedCandidates.filter(
+    (item) => !duplicateLinks.some((link) => link.candidate_report_id === item.candidate_report_id || link.cand?.id === item.candidate_report_id)
+  );
+
+  const maxSimilarityPercent = evaluatedCandidates.length > 0
+    ? Math.round(Math.max(...evaluatedCandidates.map((c) => c.similarity_score)) * 100)
+    : 0;
+
+  const maxUnflaggedSimilarityPercent = unflaggedCandidates.length > 0
+    ? Math.round(Math.max(...unflaggedCandidates.map((c) => c.similarity_score)) * 100)
+    : 0;
 
   const { data: departments } = await adminClient
     .from('departments')
@@ -286,19 +448,147 @@ export default async function GovernmentReportDetailPage({
 
           {/* Potential Duplicate Reports Card */}
           <div className="admin-card rounded-3xl p-6 space-y-5 shadow-xl border border-slate-200 bg-white">
-            <div className="border-b border-slate-200 pb-3 flex items-center justify-between">
+            <div className="border-b border-slate-200 pb-3 flex items-center justify-between flex-wrap gap-2">
               <h2 className="text-sm font-extrabold text-slate-950 uppercase tracking-wider flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-amber-600" /> Potential Duplicate Reports & AI Multi-Signal Confidence
               </h2>
-              <span className="text-xs font-bold bg-teal-50 text-teal-800 px-3 py-1 rounded-full border border-teal-200">
-                {duplicateLinks.length} {duplicateLinks.length === 1 ? 'Match Flagged' : 'Matches Flagged'}
-              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                {candidatesScannedCount > 0 && (
+                  <span className="text-[11px] font-bold bg-slate-100 text-slate-700 px-3 py-1 rounded-full border border-slate-200">
+                    🔍 {candidatesScannedCount} Reports Scanned | Max Similarity: {maxSimilarityPercent}%
+                  </span>
+                )}
+                <span className={`text-xs font-extrabold px-3 py-1 rounded-full border shadow-2xs ${duplicateLinks.length > 0 ? 'bg-amber-50 text-amber-900 border-amber-300' : 'bg-teal-50 text-teal-800 border-teal-200'}`}>
+                  {duplicateLinks.length} {duplicateLinks.length === 1 ? 'Match Flagged' : 'Matches Flagged'}
+                </span>
+              </div>
             </div>
 
             {duplicateLinks.length === 0 ? (
-              <p className="text-xs text-slate-500 italic p-3 bg-slate-50 rounded-xl border border-slate-200">
-                No duplicate candidates flagged above confidence threshold (70%).
-              </p>
+              <div className="space-y-5">
+                <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-slate-900">
+                    <Sparkles className="w-4 h-4 text-amber-600" />
+                    <span>AI Multi-Signal Duplicate Analysis Summary</span>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    The AI engine evaluated <strong>{candidatesScannedCount} candidate reports</strong> across 4 weighted signals (Semantic text similarity, Geographic proximity, Temporal decay, and Category match).
+                    {candidatesScannedCount > 0 ? (
+                      <> No candidate reports met or exceeded the <strong>50% confidence threshold</strong> required for automated duplicate flagging. The highest similarity score found among non-flagged candidates was <strong>{maxUnflaggedSimilarityPercent}%</strong>.</>
+                    ) : (
+                      <> No other candidate reports currently exist in the database to compare against.</>
+                    )}
+                  </p>
+                </div>
+
+                {unflaggedCandidates.length > 0 && (
+                  <div className="space-y-3">
+                    <span className="text-xs font-extrabold text-slate-800 uppercase tracking-wider block">
+                      Top Evaluated Candidate Reports & Similarity Signals (Below 50% Threshold)
+                    </span>
+                    <div className="space-y-4">
+                      {unflaggedCandidates.slice(0, 3).map((item) => {
+                        const cand = item.cand;
+                        const overallPercent = Math.round(item.similarity_score * 100);
+                        const semScore = Math.round(item.semantic_score * 100);
+                        const distScore = Math.round(item.distance_score * 100);
+                        const tempScore = Math.round(item.temporal_score * 100);
+                        const catScore = Math.round(item.category_score * 100);
+
+                        return (
+                          <div
+                            key={item.candidate_report_id}
+                            className="p-5 bg-gradient-to-br from-slate-50/70 via-white to-slate-50/40 border border-slate-200 rounded-2xl space-y-4 shadow-sm hover:border-slate-300 transition"
+                          >
+                            <div className="flex items-center justify-between flex-wrap gap-2 border-b border-slate-100 pb-3">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-slate-500 font-semibold">Candidate:</span>
+                                <Link
+                                  href={`/government/reports/${cand.id}`}
+                                  className="font-mono text-sm font-bold text-teal-800 hover:text-teal-950 hover:underline flex items-center gap-1.5"
+                                >
+                                  <span>{cand.tracking_code}</span>
+                                  {cand.final_category && (
+                                    <span className="text-xs text-slate-500 font-medium capitalize">
+                                      ({cand.final_category.replace('_', ' ')})
+                                    </span>
+                                  )}
+                                </Link>
+                              </div>
+
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-extrabold px-3 py-1 rounded-full border shadow-2xs bg-slate-100 text-slate-800 border-slate-300">
+                                  {overallPercent}% Match — Below Threshold
+                                </span>
+                              </div>
+                            </div>
+
+                            {cand.description && (
+                              <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+                                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Candidate Issue Description</span>
+                                <p className="text-xs text-slate-800 leading-relaxed line-clamp-2">{cand.description}</p>
+                              </div>
+                            )}
+
+                            <div className="space-y-2">
+                              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                                Evaluated AI Signal Breakdown
+                              </span>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-semibold">
+                                <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl space-y-1.5 shadow-2xs">
+                                  <div className="flex items-center justify-between text-[11px] font-extrabold text-blue-950">
+                                    <span>🧠 Semantic Similarity</span>
+                                    <span className="text-blue-700 font-black text-xs">{semScore}%</span>
+                                  </div>
+                                  <div className="w-full bg-blue-200/80 rounded-full h-1.5 overflow-hidden">
+                                    <div className="bg-blue-600 h-full rounded-full transition-all duration-500" style={{ width: `${semScore}%` }} />
+                                  </div>
+                                  <span className="text-[10px] text-blue-800/80 block font-bold">(45% Weight)</span>
+                                </div>
+
+                                <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-1.5 shadow-2xs">
+                                  <div className="flex items-center justify-between text-[11px] font-extrabold text-emerald-950">
+                                    <span>📍 Geographic Proximity</span>
+                                    <span className="text-emerald-700 font-black text-xs">{distScore}%</span>
+                                  </div>
+                                  <div className="w-full bg-emerald-200/80 rounded-full h-1.5 overflow-hidden">
+                                    <div className="bg-emerald-600 h-full rounded-full transition-all duration-500" style={{ width: `${distScore}%` }} />
+                                  </div>
+                                  <span className="text-[10px] text-emerald-800/80 block font-bold">(30% Weight)</span>
+                                </div>
+
+                                <div className="p-3 bg-purple-50/70 border border-purple-200/80 rounded-xl space-y-1.5 shadow-2xs">
+                                  <div className="flex items-center justify-between text-[11px] font-extrabold text-purple-950">
+                                    <span>⏱️ Temporal Decay</span>
+                                    <span className="text-purple-700 font-black text-xs">{tempScore}%</span>
+                                  </div>
+                                  <div className="w-full bg-purple-200/80 rounded-full h-1.5 overflow-hidden">
+                                    <div className="bg-purple-600 h-full rounded-full transition-all duration-500" style={{ width: `${tempScore}%` }} />
+                                  </div>
+                                  <span className="text-[10px] text-purple-800/80 block font-bold">(15% Weight)</span>
+                                </div>
+
+                                <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl space-y-1.5 shadow-2xs">
+                                  <div className="flex items-center justify-between text-[11px] font-extrabold text-amber-950">
+                                    <span>🏷️ Category Match</span>
+                                    <span className="text-amber-700 font-black text-xs">{catScore}%</span>
+                                  </div>
+                                  <div className="w-full bg-amber-200/80 rounded-full h-1.5 overflow-hidden">
+                                    <div className="bg-amber-600 h-full rounded-full transition-all duration-500" style={{ width: `${catScore}%` }} />
+                                  </div>
+                                  <span className="text-[10px] text-amber-800/80 block font-bold">(10% Weight)</span>
+                                </div>
+                              </div>
+                            </div>
+
+
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="space-y-4">
                 {duplicateLinks.map((link) => {
@@ -306,9 +596,9 @@ export default async function GovernmentReportDetailPage({
                   const overallPercent = Math.round(link.similarity_score * 100);
 
                   const getConfidenceLabel = (score: number) => {
-                    if (score >= 0.85) return { label: 'High Confidence Match', color: 'bg-emerald-100 text-emerald-900 border-emerald-300' };
-                    if (score >= 0.70) return { label: 'Medium Confidence Match', color: 'bg-amber-100 text-amber-900 border-amber-300' };
-                    return { label: 'Low Confidence Match', color: 'bg-slate-100 text-slate-800 border-slate-300' };
+                    if (score >= 0.70) return { label: 'High Confidence Match', color: 'bg-emerald-100 text-emerald-900 border-emerald-300' };
+                    if (score >= 0.50) return { label: 'Medium Confidence Match', color: 'bg-amber-100 text-amber-900 border-amber-300' };
+                    return { label: 'Low / Partial Match', color: 'bg-slate-100 text-slate-800 border-slate-300' };
                   };
 
                   const conf = getConfidenceLabel(link.similarity_score);
@@ -364,71 +654,67 @@ export default async function GovernmentReportDetailPage({
                       )}
 
                       {/* Similarity Tokens & Breakdown Grid */}
-                      <div className="space-y-2">
-                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                          AI Similarity Tokens & Signal Breakdown
-                        </span>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs font-semibold">
-                          <div className="p-2.5 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-1">
-                            <span className="text-[10px] text-slate-500 font-bold block uppercase">🧠 Semantic Similarity</span>
-                            <span className="text-sm font-extrabold text-blue-700">{Math.round(link.semantic_score * 100)}%</span>
-                            <span className="text-[9px] text-slate-400 block font-normal">(45% Weight)</span>
-                          </div>
+                      {(() => {
+                        const semScore = Math.round((typeof link.semantic_score === 'number' && !isNaN(link.semantic_score) ? link.semantic_score : 0.5) * 100);
+                        const distScore = Math.round((typeof link.distance_score === 'number' && !isNaN(link.distance_score) ? link.distance_score : 0.5) * 100);
+                        const tempScore = Math.round((typeof link.temporal_score === 'number' && !isNaN(link.temporal_score) ? link.temporal_score : 1.0) * 100);
+                        const catScore = Math.round((typeof link.category_score === 'number' && !isNaN(link.category_score) ? link.category_score : 1.0) * 100);
 
-                          <div className="p-2.5 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-1">
-                            <span className="text-[10px] text-slate-500 font-bold block uppercase">📍 Geographic Proximity</span>
-                            <span className="text-sm font-extrabold text-emerald-700">{Math.round(link.distance_score * 100)}%</span>
-                            <span className="text-[9px] text-slate-400 block font-normal">(30% Weight)</span>
-                          </div>
+                        return (
+                          <div className="space-y-2">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                              AI Similarity Tokens & Signal Breakdown
+                            </span>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs font-semibold">
+                              <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl space-y-1.5 shadow-2xs">
+                                <div className="flex items-center justify-between text-[11px] font-extrabold text-blue-950">
+                                  <span>🧠 Semantic Similarity</span>
+                                  <span className="text-blue-700 font-black text-xs">{semScore}%</span>
+                                </div>
+                                <div className="w-full bg-blue-200/80 rounded-full h-1.5 overflow-hidden">
+                                  <div className="bg-blue-600 h-full rounded-full transition-all duration-500" style={{ width: `${semScore}%` }} />
+                                </div>
+                                <span className="text-[10px] text-blue-800/80 block font-bold">(45% Weight)</span>
+                              </div>
 
-                          <div className="p-2.5 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-1">
-                            <span className="text-[10px] text-slate-500 font-bold block uppercase">⏱️ Temporal Decay</span>
-                            <span className="text-sm font-extrabold text-purple-700">{Math.round(link.temporal_score * 100)}%</span>
-                            <span className="text-[9px] text-slate-400 block font-normal">(15% Weight)</span>
-                          </div>
+                              <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-1.5 shadow-2xs">
+                                <div className="flex items-center justify-between text-[11px] font-extrabold text-emerald-950">
+                                  <span>📍 Geographic Proximity</span>
+                                  <span className="text-emerald-700 font-black text-xs">{distScore}%</span>
+                                </div>
+                                <div className="w-full bg-emerald-200/80 rounded-full h-1.5 overflow-hidden">
+                                  <div className="bg-emerald-600 h-full rounded-full transition-all duration-500" style={{ width: `${distScore}%` }} />
+                                </div>
+                                <span className="text-[10px] text-emerald-800/80 block font-bold">(30% Weight)</span>
+                              </div>
 
-                          <div className="p-2.5 bg-white border border-slate-200 rounded-xl shadow-2xs space-y-1">
-                            <span className="text-[10px] text-slate-500 font-bold block uppercase">🏷️ Category Match</span>
-                            <span className="text-sm font-extrabold text-amber-700">{Math.round(link.category_score * 100)}%</span>
-                            <span className="text-[9px] text-slate-400 block font-normal">(10% Weight)</span>
-                          </div>
-                        </div>
-                      </div>
+                              <div className="p-3 bg-purple-50/70 border border-purple-200/80 rounded-xl space-y-1.5 shadow-2xs">
+                                <div className="flex items-center justify-between text-[11px] font-extrabold text-purple-950">
+                                  <span>⏱️ Temporal Decay</span>
+                                  <span className="text-purple-700 font-black text-xs">{tempScore}%</span>
+                                </div>
+                                <div className="w-full bg-purple-200/80 rounded-full h-1.5 overflow-hidden">
+                                  <div className="bg-purple-600 h-full rounded-full transition-all duration-500" style={{ width: `${tempScore}%` }} />
+                                </div>
+                                <span className="text-[10px] text-purple-800/80 block font-bold">(15% Weight)</span>
+                              </div>
 
-                      {/* Review Action Controls */}
-                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 flex-wrap gap-2">
-                        <span className="text-[11px] text-slate-500 font-medium">
-                          Official Review Decision:
-                        </span>
-                        <div className="flex items-center gap-2">
-                          {link.status !== 'confirmed' && (
-                            <form action={updateDuplicateStatusAction}>
-                              <input type="hidden" name="linkId" value={link.id} />
-                              <input type="hidden" name="reportId" value={reportId} />
-                              <input type="hidden" name="status" value="confirmed" />
-                              <button
-                                type="submit"
-                                className="px-3 py-1.5 text-xs font-extrabold text-rose-800 bg-rose-50 border border-rose-300 rounded-xl hover:bg-rose-100 transition shadow-sm"
-                              >
-                                Confirm Duplicate
-                              </button>
-                            </form>
-                          )}
-                          {link.status !== 'rejected' && (
-                            <form action={updateDuplicateStatusAction}>
-                              <input type="hidden" name="linkId" value={link.id} />
-                              <input type="hidden" name="reportId" value={reportId} />
-                              <input type="hidden" name="status" value="rejected" />
-                              <button
-                                type="submit"
-                                className="px-3 py-1.5 text-xs font-extrabold text-slate-700 bg-slate-100 border border-slate-300 rounded-xl hover:bg-slate-200 transition shadow-sm"
-                              >
-                                Reject Link
-                              </button>
-                            </form>
-                          )}
-                        </div>
-                      </div>
+                              <div className="p-3 bg-amber-50/70 border border-amber-200/80 rounded-xl space-y-1.5 shadow-2xs">
+                                <div className="flex items-center justify-between text-[11px] font-extrabold text-amber-950">
+                                  <span>🏷️ Category Match</span>
+                                  <span className="text-amber-700 font-black text-xs">{catScore}%</span>
+                                </div>
+                                <div className="w-full bg-amber-200/80 rounded-full h-1.5 overflow-hidden">
+                                  <div className="bg-amber-600 h-full rounded-full transition-all duration-500" style={{ width: `${catScore}%` }} />
+                                </div>
+                                <span className="text-[10px] text-amber-800/80 block font-bold">(10% Weight)</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+
                     </div>
                   );
                 })}
@@ -437,217 +723,31 @@ export default async function GovernmentReportDetailPage({
           </div>
 
           {/* Full Audit & Activity History */}
-          <div className="admin-card rounded-3xl p-6 space-y-4 shadow-xl">
-            <h2 className="text-sm font-extrabold text-slate-950 uppercase tracking-wider border-b border-slate-200 pb-3 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-teal-700" /> Full Audit & Activity History
-            </h2>
-
-            <div className="space-y-3">
-              {(historyLogs || []).map((h) => {
-                const isProgressNote = Boolean(h.from_status && h.from_status === h.to_status);
-                const isInternal = h.visibility === 'internal';
-
-                return (
-                  <div
-                    key={h.id}
-                    className={`p-4 rounded-2xl space-y-2 border shadow-sm transition ${
-                      isInternal
-                        ? 'bg-amber-50/70 border-amber-300/80 text-amber-950 ring-1 ring-amber-400/20'
-                        : 'bg-white border-slate-200 text-slate-900'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-xs gap-2">
-                      <span className="font-bold capitalize flex items-center gap-1.5 flex-wrap">
-                        {isInternal ? (
-                          <>
-                            <Lock className="w-4 h-4 text-amber-700 inline shrink-0" />
-                            <span className="text-amber-950 font-extrabold">Internal Note (Private to Officials)</span>
-                          </>
-                        ) : isProgressNote ? (
-                          <>
-                            <MessageSquare className="w-4 h-4 text-emerald-700 inline shrink-0" />
-                            <span className="text-emerald-950 font-extrabold">Public Progress Note</span>
-                          </>
-                        ) : (
-                          <>
-                            <Clock className="w-4 h-4 text-teal-700 inline shrink-0" />
-                            Status Transition: <span className="text-slate-600 font-semibold">{h.from_status ? h.from_status.replace('_', ' ') : 'Submitted'}</span> → <span className="text-teal-700 font-extrabold">{h.to_status.replace('_', ' ')}</span>
-                          </>
-                        )}
-                      </span>
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] uppercase font-extrabold flex items-center gap-1 shrink-0 ${
-                          isInternal
-                            ? 'bg-amber-200/90 text-amber-900 border border-amber-300 shadow-sm'
-                            : 'bg-emerald-100/90 text-emerald-900 border border-emerald-300 shadow-sm'
-                        }`}
-                      >
-                        {isInternal ? <Lock className="w-3 h-3 text-amber-800" /> : <Eye className="w-3 h-3 text-emerald-800" />}
-                        {isInternal ? 'INTERNAL (PRIVATE)' : 'PUBLIC TIMELINE'}
-                      </span>
-                    </div>
-                    {h.note && (
-                      <p className={`text-xs leading-relaxed font-medium pl-5 ${isInternal ? 'text-amber-900' : 'text-slate-700'}`}>
-                        {h.note}
-                      </p>
-                    )}
-                    <span className="text-[10px] text-slate-400 block pt-1 font-medium pl-5">
-                      Logged: {new Date(h.created_at).toLocaleString()}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <AuditHistoryTimeline logs={historyLogs || []} />
         </div>
 
         {/* Sidebar Controls */}
         <div className="space-y-6">
           {/* Department Assignment Card with AI Suggestion */}
-          <div className="admin-card rounded-3xl p-6 space-y-4 shadow-xl border border-slate-200">
-            <h3 className="text-sm font-extrabold text-slate-950 flex items-center gap-2 border-b border-slate-200 pb-3">
-              <Building2 className="w-4 h-4 text-amber-600" /> Department Assignment
-            </h3>
-
-            {/* Assigned Department or AI Suggestion Highlight Banner */}
-            {currentAssignedDepartmentName ? (
-              <div className="p-3 bg-purple-50 border border-purple-200 rounded-2xl space-y-1 shadow-sm">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-extrabold text-purple-950 flex items-center gap-1.5">
-                    <Building2 className="w-4 h-4 text-purple-700 shrink-0" /> Currently Assigned
-                  </span>
-                  <span className="px-2 py-0.5 bg-purple-100 text-purple-800 text-[10px] font-extrabold rounded-md border border-purple-300 uppercase">
-                    Assigned
-                  </span>
-                </div>
-                <p className="text-xs text-slate-900 font-extrabold">{currentAssignedDepartmentName}</p>
-              </div>
-            ) : suggestedDepartmentName ? (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl space-y-1 shadow-sm">
-                <div className="flex items-center justify-between gap-1 text-xs">
-                  <span className="font-extrabold text-amber-900 flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-amber-600 shrink-0" /> AI Auto-Suggested
-                  </span>
-                  <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-extrabold rounded-md border border-amber-300">
-                    AI Recommended
-                  </span>
-                </div>
-                <p className="text-xs text-slate-800 font-bold">{suggestedDepartmentName}</p>
-                <p className="text-[11px] text-slate-500 leading-tight">
-                  Suggested based on reported issue category and automated infrastructure taxonomy.
-                </p>
-              </div>
-            ) : null}
-
-            <form action={assignDepartmentAction} className="space-y-3">
-              <input type="hidden" name="reportId" value={reportId} />
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  {currentAssignedDepartmentName ? 'Reassign Responsible Department' : 'Assign Responsible Department'}
-                </label>
-                <select
-                  name="departmentId"
-                  defaultValue={defaultDepartmentValue}
-                  className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
-                >
-                  <option value="" disabled>Select Department</option>
-                  {(departments || []).map((d) => {
-                    const isAiSuggested = d.id === suggestedDepartmentId;
-                    const isCurrentlyAssigned = d.id === report.assigned_department_id;
-                    return (
-                      <option key={d.id} value={d.id}>
-                        {d.name} {isCurrentlyAssigned ? '✓ (Assigned)' : isAiSuggested ? '✨ (AI Suggested)' : ''}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-amber-900/15 transition flex items-center justify-center gap-1.5"
-              >
-                <Building2 className="w-4 h-4" /> {currentAssignedDepartmentName ? 'Reassign Department' : 'Assign Department'}
-              </button>
-            </form>
-          </div>
+          <DepartmentAssignmentCard
+            reportId={reportId}
+            currentAssignedDeptName={currentAssignedDepartmentName}
+            currentAssignedDeptId={report.assigned_department_id}
+            suggestedDeptName={suggestedDepartmentName || null}
+            suggestedDeptId={suggestedDepartmentId || null}
+            departments={departments || []}
+          />
 
           {/* Update Case Status Card */}
-          <div className="admin-card rounded-3xl p-6 space-y-4 shadow-xl border border-slate-200">
-            <h3 className="text-sm font-extrabold text-slate-950 border-b border-slate-200 pb-3">
-              Update Case Status
-            </h3>
-
-            <form action={changeReportStatusAction} className="space-y-3">
-              <input type="hidden" name="reportId" value={reportId} />
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Target Status Transition</label>
-                <select
-                  name="newStatus"
-                  defaultValue={report.status}
-                  className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-900 font-bold focus:outline-none focus:ring-2 focus:ring-teal-600 shadow-sm"
-                >
-                  <option value="submitted">Submitted</option>
-                  <option value="under_review">Under Review</option>
-                  <option value="assigned">Assigned</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Status Note (Optional)</label>
-                <input
-                  type="text"
-                  name="note"
-                  placeholder="Reason for status change..."
-                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-600 shadow-sm font-medium"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-teal-700 hover:bg-teal-800 text-white font-extrabold text-xs rounded-xl shadow-md shadow-teal-900/15 transition"
-              >
-                Update Status
-              </button>
-            </form>
-          </div>
+          <StatusUpdateCard
+            reportId={reportId}
+            currentStatus={report.status}
+          />
 
           {/* Add Progress Note Card */}
-          <div className="admin-card rounded-3xl p-6 space-y-4 shadow-xl border border-slate-200">
-            <h3 className="text-sm font-extrabold text-slate-950 border-b border-slate-200 pb-3 flex items-center gap-2">
-              <MessageSquare className="w-4 h-4 text-emerald-700" /> Add Progress Note
-            </h3>
-
-            <form action={addProgressNoteAction} className="space-y-3">
-              <input type="hidden" name="reportId" value={reportId} />
-              <textarea
-                name="note"
-                rows={3}
-                required
-                placeholder="Type note or resolution commentary..."
-                className="w-full bg-white border border-slate-300 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 shadow-sm font-medium"
-              />
-
-              <div className="flex items-center gap-4 text-xs font-bold">
-                <label className="flex items-center gap-1.5 cursor-pointer text-slate-800">
-                  <input type="radio" name="visibility" value="public" defaultChecked className="text-emerald-600" /> Public
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer text-slate-800">
-                  <input type="radio" name="visibility" value="internal" className="text-amber-600" /> Internal
-                </label>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-900/15 transition"
-              >
-                Add Progress Note
-              </button>
-            </form>
-          </div>
+          <ProgressNoteCard
+            reportId={reportId}
+          />
 
           {/* Citizen Contact Info */}
           {contact && (

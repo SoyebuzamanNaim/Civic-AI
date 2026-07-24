@@ -24,11 +24,12 @@ export default function RootLayout({
     <html
       lang="en"
       className="h-full antialiased"
+      suppressHydrationWarning
     >
       <head>
         <link rel="manifest" href="/manifest.webmanifest" />
       </head>
-      <body className="min-h-full w-full max-w-full overflow-x-hidden flex flex-col">
+      <body className="min-h-full w-full max-w-full overflow-x-hidden flex flex-col" suppressHydrationWarning>
         <LanguageProvider>{children}</LanguageProvider>
         <script
           dangerouslySetInnerHTML={{

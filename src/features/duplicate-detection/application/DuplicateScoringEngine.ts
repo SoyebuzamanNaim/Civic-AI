@@ -28,7 +28,7 @@ export class DuplicateScoringEngine {
   private maxTimeWindowDays: number;
 
   constructor() {
-    this.threshold = parseFloat(process.env.DUPLICATE_SCORE_THRESHOLD || '0.70');
+    this.threshold = parseFloat(process.env.DUPLICATE_SCORE_THRESHOLD || '0.50');
     this.maxRadiusMeters = parseFloat(process.env.DUPLICATE_RADIUS_METERS || '500');
     this.maxTimeWindowDays = parseFloat(process.env.DUPLICATE_TIME_WINDOW_DAYS || '14');
   }
@@ -47,7 +47,7 @@ export class DuplicateScoringEngine {
   ): DuplicateScoringResult {
     // 1. Semantic Cosine Distance Score / Text Similarity (0.45 weight)
     let semanticScore = 0.5;
-    if (target.embedding && candidate.embedding) {
+    if (target.embedding && candidate.embedding && target.embedding.length > 0 && candidate.embedding.length > 0) {
       semanticScore = this.calculateCosineSimilarity(target.embedding, candidate.embedding);
     } else if (target.description && candidate.description) {
       semanticScore = this.calculateTextSimilarity(target.description, candidate.description);
@@ -79,6 +79,16 @@ export class DuplicateScoringEngine {
       const loc2 = candidate.locationText.trim().toLowerCase();
       if (loc1 === loc2 || loc1.includes(loc2) || loc2.includes(loc1)) {
         distanceScore = 1.0;
+      } else {
+        const tok1 = new Set(loc1.split(/\s+/).filter((w) => w.length >= 2));
+        const tok2 = new Set(loc2.split(/\s+/).filter((w) => w.length >= 2));
+        let match = 0;
+        for (const w of tok1) {
+          if (tok2.has(w)) match++;
+        }
+        if (match > 0) {
+          distanceScore = Math.min(1.0, 0.5 + (match / Math.max(tok1.size, tok2.size)) * 0.5);
+        }
       }
     }
 
@@ -89,7 +99,12 @@ export class DuplicateScoringEngine {
     const temporalScore = Math.max(0, 1 - diffDays / this.maxTimeWindowDays);
 
     // 4. Category Compatibility Score (0.10 weight)
-    const categoryScore = target.category === candidate.category ? 1.0 : 0.0;
+    const normTargetCat = String(target.category || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const normCandCat = String(candidate.category || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const categoryScore =
+      normTargetCat && normCandCat && (normTargetCat === normCandCat || normTargetCat.includes(normCandCat) || normCandCat.includes(normTargetCat))
+        ? 1.0
+        : 0.0;
 
     // Multi-signal Weighted Calculation
     const similarityScore =
