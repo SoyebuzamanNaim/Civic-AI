@@ -44,7 +44,11 @@ export async function middleware(request: NextRequest) {
     if (!user) {
       const url = request.nextUrl.clone();
       url.pathname = '/government/login';
-      return NextResponse.redirect(url);
+      const redirectRes = NextResponse.redirect(url);
+      if (request.headers.has('next-action')) {
+        redirectRes.headers.set('x-action-redirect', '/government/login');
+      }
+      return redirectRes;
     }
   }
 

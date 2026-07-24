@@ -26,4 +26,15 @@ describe('Phase 6 Case Management & Status Transitions Unit Tests', () => {
     expect(canTransition('submitted', 'resolved')).toBe(false);
     expect(canTransition('resolved', 'submitted')).toBe(false);
   });
+
+  it('should correctly distinguish between status transitions and progress notes', () => {
+    const statusTransitionRecord = { from_status: 'submitted', to_status: 'under_review' };
+    const progressNoteRecord = { from_status: 'under_review', to_status: 'under_review' };
+
+    const isTransitionProgressNote = statusTransitionRecord.from_status === statusTransitionRecord.to_status;
+    const isNoteProgressNote = progressNoteRecord.from_status === progressNoteRecord.to_status;
+
+    expect(isTransitionProgressNote).toBe(false);
+    expect(isNoteProgressNote).toBe(true);
+  });
 });

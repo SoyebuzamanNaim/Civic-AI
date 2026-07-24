@@ -43,15 +43,17 @@ export class GetPublicTrackingViewUseCase {
       // 3. Query Public Timeline Status History (Strictly visibility == 'public')
       const { data: historyRows } = await adminClient
         .from('report_status_history')
-        .select('to_status, note, created_at')
+        .select('from_status, to_status, note, created_at')
         .eq('report_id', report.id)
         .eq('visibility', 'public')
         .order('created_at', { ascending: true });
 
       const publicTimeline = (historyRows || []).map((h) => ({
         status: h.to_status,
+        fromStatus: h.from_status || null,
         note: h.note,
         timestamp: h.created_at,
+        isProgressNote: Boolean(h.from_status && h.from_status === h.to_status),
       }));
 
       // 4. Construct Explicit Redacted Public DTO

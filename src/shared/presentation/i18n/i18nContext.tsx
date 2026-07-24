@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 export type Language = 'en' | 'bn';
 
@@ -92,11 +92,14 @@ const LanguageContext = createContext<LanguageContextType>({
 });
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<Language>(() => {
-    if (typeof window === 'undefined') return 'en';
+  const [language, setLanguageState] = useState<Language>('en');
+
+  useEffect(() => {
     const saved = localStorage.getItem('civicpulse_lang') as Language;
-    return saved === 'en' || saved === 'bn' ? saved : 'en';
-  });
+    if (saved === 'en' || saved === 'bn') {
+      setLanguageState(saved);
+    }
+  }, []);
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);

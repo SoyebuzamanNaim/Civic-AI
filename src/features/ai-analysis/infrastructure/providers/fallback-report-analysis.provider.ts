@@ -44,16 +44,41 @@ export class FallbackReportAnalysisProvider implements ReportAnalysisProvider {
     }
 
     const text = (input.description + " " + input.locationText).toLowerCase();
-    if (text.includes("pothole") || text.includes("crater") || text.includes("road defect")) {
+    
+    // Pothole / Road damage keywords (English + Banglish + Bengali)
+    if (
+      text.includes("pothole") || text.includes("crater") || text.includes("road defect") ||
+      text.includes("gorto") || text.includes("gortho") || text.includes("bhanga rasta") ||
+      text.includes("rasta bhanga") || text.includes("rasta kharap") || text.includes("khana khondo") ||
+      text.includes("গর্ত") || text.includes("রাস্তা ভাঙা")
+    ) {
       return "POTHOLE";
     }
-    if (text.includes("light") || text.includes("lamp") || text.includes("dark") || text.includes("streetlight")) {
+
+    // Streetlight keywords (English + Banglish + Bengali)
+    if (
+      text.includes("light") || text.includes("lamp") || text.includes("dark") || text.includes("streetlight") ||
+      text.includes("bati") || text.includes("andhokar") || text.includes("jalena") || text.includes("jale na") ||
+      text.includes("nosto") || text.includes("বাতি") || text.includes("অন্ধকার")
+    ) {
       return "BROKEN_STREETLIGHT";
     }
-    if (text.includes("leak") || text.includes("pipe") || text.includes("water") || text.includes("burst")) {
+
+    // Water leak keywords (English + Banglish + Bengali)
+    if (
+      text.includes("leak") || text.includes("pipe") || text.includes("water") || text.includes("burst") ||
+      text.includes("pani") || text.includes("paani") || text.includes("panir pipe") || text.includes("pani leak") ||
+      text.includes("পানি") || text.includes("পাইপ")
+    ) {
       return "WATER_LEAK";
     }
-    if (text.includes("dump") || text.includes("trash") || text.includes("waste") || text.includes("garbage")) {
+
+    // Illegal dumping keywords (English + Banglish + Bengali)
+    if (
+      text.includes("dump") || text.includes("trash") || text.includes("waste") || text.includes("garbage") ||
+      text.includes("moyla") || text.includes("moila") || text.includes("gondho") || text.includes("dustbin") ||
+      text.includes("ময়লা") || text.includes("আবর্জনা")
+    ) {
       return "ILLEGAL_DUMPING";
     }
 

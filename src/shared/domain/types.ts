@@ -39,8 +39,10 @@ export interface ReportSubmissionInput {
 
 export interface PublicStatusTimelineItem {
   status: ReportStatus;
+  fromStatus?: ReportStatus | null;
   note: string | null;
   timestamp: string;
+  isProgressNote?: boolean;
 }
 
 export interface PublicReportDTO {

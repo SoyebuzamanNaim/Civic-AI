@@ -1,7 +1,7 @@
 'use server';
 
 import { NotificationDispatcher } from '@/features/government-management/application/NotificationDispatcher';
-import { NoteVisibility, ReportStatus } from '@/shared/domain/types';
+import { DuplicateStatus, NoteVisibility, ReportStatus } from '@/shared/domain/types';
 import { createAdminClient } from '@/shared/infrastructure/supabase/admin';
 import { revalidatePath } from 'next/cache';
 
@@ -17,9 +17,11 @@ export async function assignDepartmentAction(formData: FormData): Promise<void> 
 
   const { data: report } = await adminClient
     .from('reports')
-    .select('tracking_code')
+    .select('tracking_code, status')
     .eq('id', reportId)
     .single();
+
+  const fromStatus = (report?.status as ReportStatus) || 'submitted';
 
   const { error: updateError } = await adminClient
     .from('reports')
@@ -41,7 +43,7 @@ export async function assignDepartmentAction(formData: FormData): Promise<void> 
 
   await adminClient.from('report_status_history').insert({
     report_id: reportId,
-    from_status: 'under_review',
+    from_status: fromStatus,
     to_status: 'assigned',
     note: noteMsg,
     visibility: 'public',
@@ -55,6 +57,8 @@ export async function assignDepartmentAction(formData: FormData): Promise<void> 
       title: 'Department Assigned',
       message: noteMsg,
     });
+    revalidatePath(`/track/${report.tracking_code}`);
+    revalidatePath('/track');
   }
 
   revalidatePath(`/government/reports/${reportId}`);
@@ -64,7 +68,7 @@ export async function assignDepartmentAction(formData: FormData): Promise<void> 
 export async function changeReportStatusAction(formData: FormData): Promise<void> {
   const reportId = formData.get('reportId')?.toString();
   const newStatus = formData.get('newStatus')?.toString() as ReportStatus | undefined;
-  const note = formData.get('note')?.toString();
+  const note = formData.get('note')?.toString()?.trim();
 
   if (!reportId || !newStatus) {
     return;
@@ -74,15 +78,27 @@ export async function changeReportStatusAction(formData: FormData): Promise<void
 
   const { data: currentReport } = await adminClient
     .from('reports')
-    .select('status')
+    .select('status, tracking_code')
     .eq('id', reportId)
     .single();
 
   const fromStatus = (currentReport?.status as ReportStatus) || 'submitted';
+  const statusNote = note || `Status updated from ${fromStatus.replace('_', ' ')} to ${newStatus.replace('_', ' ')}.`;
+
+  const updateData: Record<string, unknown> = {
+    status: newStatus,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (newStatus === 'resolved') {
+    updateData.resolved_at = new Date().toISOString();
+  } else {
+    updateData.resolved_at = null;
+  }
 
   const { error: updateError } = await adminClient
     .from('reports')
-    .update({ status: newStatus, updated_at: new Date().toISOString() })
+    .update(updateData)
     .eq('id', reportId);
 
   if (updateError) {
@@ -94,9 +110,21 @@ export async function changeReportStatusAction(formData: FormData): Promise<void
     report_id: reportId,
     from_status: fromStatus,
     to_status: newStatus,
-    note: note || `Status updated to ${newStatus.replace('_', ' ')}.`,
+    note: statusNote,
     visibility: 'public',
   });
+
+  if (currentReport?.tracking_code) {
+    await NotificationDispatcher.dispatchNotification({
+      reportId,
+      trackingCode: currentReport.tracking_code,
+      type: 'status_update',
+      title: `Status Updated to ${newStatus.replace('_', ' ')}`,
+      message: statusNote,
+    });
+    revalidatePath(`/track/${currentReport.tracking_code}`);
+    revalidatePath('/track');
+  }
 
   revalidatePath(`/government/reports/${reportId}`);
   revalidatePath('/government/dashboard');
@@ -104,7 +132,7 @@ export async function changeReportStatusAction(formData: FormData): Promise<void
 
 export async function addProgressNoteAction(formData: FormData): Promise<void> {
   const reportId = formData.get('reportId')?.toString();
-  const note = formData.get('note')?.toString();
+  const note = formData.get('note')?.toString()?.trim();
   const visibility: NoteVisibility = formData.get('visibility')?.toString() === 'internal' ? 'internal' : 'public';
 
   if (!reportId || !note) {
@@ -115,7 +143,7 @@ export async function addProgressNoteAction(formData: FormData): Promise<void> {
 
   const { data: currentReport } = await adminClient
     .from('reports')
-    .select('status')
+    .select('status, tracking_code')
     .eq('id', reportId)
     .single();
 
@@ -129,5 +157,44 @@ export async function addProgressNoteAction(formData: FormData): Promise<void> {
     visibility,
   });
 
+  if (visibility === 'public' && currentReport?.tracking_code) {
+    await NotificationDispatcher.dispatchNotification({
+      reportId,
+      trackingCode: currentReport.tracking_code,
+      type: 'progress_note',
+      title: 'New Public Progress Note Added',
+      message: note,
+    });
+    revalidatePath(`/track/${currentReport.tracking_code}`);
+    revalidatePath('/track');
+  }
+
   revalidatePath(`/government/reports/${reportId}`);
+  revalidatePath('/government/dashboard');
+}
+
+export async function updateDuplicateStatusAction(formData: FormData): Promise<void> {
+  const linkId = formData.get('linkId')?.toString();
+  const newStatus = formData.get('status')?.toString() as DuplicateStatus;
+  const reportId = formData.get('reportId')?.toString();
+
+  if (!linkId || !newStatus || !['confirmed', 'rejected', 'suggested'].includes(newStatus)) {
+    return;
+  }
+
+  const adminClient = createAdminClient();
+  const { error } = await adminClient
+    .from('report_duplicate_links')
+    .update({ status: newStatus, reviewed_at: new Date().toISOString() })
+    .eq('id', linkId);
+
+  if (error) {
+    console.error('Update Duplicate Status Error:', error);
+    return;
+  }
+
+  if (reportId) {
+    revalidatePath(`/government/reports/${reportId}`);
+    revalidatePath('/government/dashboard');
+  }
 }

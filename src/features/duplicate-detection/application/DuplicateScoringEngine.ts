@@ -5,8 +5,9 @@ export interface CandidateReport {
   trackingCode: string;
   description: string;
   category: IssueCategory;
-  latitude?: number;
-  longitude?: number;
+  latitude?: number | null;
+  longitude?: number | null;
+  locationText?: string | null;
   submittedAt: string;
   embedding?: number[];
 }
@@ -35,34 +36,50 @@ export class DuplicateScoringEngine {
   public scoreCandidate(
     target: {
       category: IssueCategory;
-      latitude?: number;
-      longitude?: number;
+      latitude?: number | null;
+      longitude?: number | null;
+      locationText?: string | null;
       submittedAt: Date;
       embedding?: number[];
+      description?: string;
     },
     candidate: CandidateReport
   ): DuplicateScoringResult {
-    // 1. Semantic Cosine Distance Score (0.45 weight)
-    const semanticScore =
-      target.embedding && candidate.embedding
-        ? this.calculateCosineSimilarity(target.embedding, candidate.embedding)
-        : 0.5;
+    // 1. Semantic Cosine Distance Score / Text Similarity (0.45 weight)
+    let semanticScore = 0.5;
+    if (target.embedding && candidate.embedding) {
+      semanticScore = this.calculateCosineSimilarity(target.embedding, candidate.embedding);
+    } else if (target.description && candidate.description) {
+      semanticScore = this.calculateTextSimilarity(target.description, candidate.description);
+    }
 
     // 2. Geographic Distance Score (0.30 weight)
     let distanceScore = 0.5;
-    if (
-      target.latitude !== undefined &&
-      target.longitude !== undefined &&
-      candidate.latitude !== undefined &&
-      candidate.longitude !== undefined
-    ) {
+    const hasValidTargetCoords =
+      target.latitude != null &&
+      target.longitude != null &&
+      !isNaN(Number(target.latitude)) &&
+      !isNaN(Number(target.longitude));
+    const hasValidCandCoords =
+      candidate.latitude != null &&
+      candidate.longitude != null &&
+      !isNaN(Number(candidate.latitude)) &&
+      !isNaN(Number(candidate.longitude));
+
+    if (hasValidTargetCoords && hasValidCandCoords) {
       const distMeters = this.calculateHaversine(
-        target.latitude,
-        target.longitude,
-        candidate.latitude,
-        candidate.longitude
+        Number(target.latitude),
+        Number(target.longitude),
+        Number(candidate.latitude),
+        Number(candidate.longitude)
       );
-      distanceScore = Math.max(0, 1 - distMeters / this.maxRadiusMeters);
+      distanceScore = isNaN(distMeters) ? 0.5 : Math.max(0, 1 - distMeters / this.maxRadiusMeters);
+    } else if (target.locationText && candidate.locationText) {
+      const loc1 = target.locationText.trim().toLowerCase();
+      const loc2 = candidate.locationText.trim().toLowerCase();
+      if (loc1 === loc2 || loc1.includes(loc2) || loc2.includes(loc1)) {
+        distanceScore = 1.0;
+      }
     }
 
     // 3. Temporal Proximity Score (0.15 weight)
@@ -126,5 +143,32 @@ export class DuplicateScoringEngine {
         Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
+  }
+
+  private calculateTextSimilarity(text1: string, text2: string): number {
+    const t1 = text1.trim().toLowerCase();
+    const t2 = text2.trim().toLowerCase();
+
+    if (t1 === t2) return 1.0;
+    if (t1.includes(t2) || t2.includes(t1)) return 0.9;
+
+    const tokenize = (t: string) =>
+      new Set(
+        t
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}\s]/gu, '')
+          .split(/\s+/)
+          .filter((w) => w.length >= 2)
+      );
+    const set1 = tokenize(t1);
+    const set2 = tokenize(t2);
+    if (set1.size === 0 || set2.size === 0) return 0.5;
+    let intersection = 0;
+    for (const w of set1) {
+      if (set2.has(w)) intersection++;
+    }
+    const union = new Set([...set1, ...set2]).size;
+    const jaccard = union > 0 ? intersection / union : 0;
+    return Math.max(jaccard, 0.4);
   }
 }

@@ -83,7 +83,7 @@ export class SubmitReportUseCase {
       try {
         const { data: candidateRows } = await adminClient
           .from('reports')
-          .select('id, tracking_code, description, final_category, latitude, longitude, submitted_at')
+          .select('id, tracking_code, description, final_category, location_text, latitude, longitude, submitted_at')
           .neq('id', reportId)
           .order('submitted_at', { ascending: false })
           .limit(20);
@@ -98,8 +98,10 @@ export class SubmitReportUseCase {
                 category: aiAnalysis.category,
                 latitude: input.latitude,
                 longitude: input.longitude,
+                locationText: input.locationText,
                 submittedAt,
                 embedding: submissionEmbedding,
+                description: input.description,
               },
               {
                 id: cand.id,
@@ -108,6 +110,7 @@ export class SubmitReportUseCase {
                 category: cand.final_category,
                 latitude: cand.latitude,
                 longitude: cand.longitude,
+                locationText: cand.location_text,
                 submittedAt: cand.submitted_at,
               }
             );
